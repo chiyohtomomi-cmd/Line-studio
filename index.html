@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Line Studio">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#3F9C71">
+<meta name="description" content="Free tool for coloring-book creators: find and close gaps in line art, fix lines, export clean pages. Works offline. Nothing is uploaded.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Line Studio</title>
+<style>
+:root{
+  --bg:#F4F2EC; --surface:#FFFFFF; --surface2:#EEEBE3; --ink:#24211C; --muted:#6F695E; --line:#DDD8CC;
+  --green:#3F9C71; --green-text:#FFFFFF; --green-soft:#DDEFE5;
+  --red:#D64545; --yellow:#C99A1E; --gray:#8A847A; --stage:#E4E0D6;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#171512; --surface:#221F1B; --surface2:#2C2823; --ink:#F1EDE6; --muted:#A8A196; --line:#3A352E;
+    --green:#5BB48A; --green-text:#0F1A14; --green-soft:#21362B;
+    --red:#F06A6A; --yellow:#E5BC4A; --gray:#9C958A; --stage:#100F0D; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#171512; --surface:#221F1B; --surface2:#2C2823; --ink:#F1EDE6; --muted:#A8A196; --line:#3A352E;
+  --green:#5BB48A; --green-text:#0F1A14; --green-soft:#21362B;
+  --red:#F06A6A; --yellow:#E5BC4A; --gray:#9C958A; --stage:#100F0D; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit}
+button:focus-visible,input:focus-visible,label:focus-within{outline:3px solid var(--green);outline-offset:2px}
+.btn{min-height:44px;border-radius:14px;border:1px solid var(--line);background:var(--surface);padding:10px 16px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn.primary{background:var(--green);border-color:var(--green);color:var(--green-text)}
+.btn.big{width:100%;min-height:52px;font-size:17px}
+.btn:disabled{opacity:.4;cursor:default}
+.ib{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;flex:none}
+.ib:disabled{opacity:.35;cursor:default}
+.ib[aria-pressed="true"]{background:var(--green);border-color:var(--green);color:var(--green-text)}
+.ib svg,.tool svg,.btn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* ---------- library ---------- */
+#lib{max-width:1000px;margin:0 auto;padding:18px 16px 40px}
+.libhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.libhead h1{font-size:26px;margin:0;flex:1;min-width:160px;letter-spacing:-0.01em}
+.sub{color:var(--muted);margin:0 0 16px;font-size:15px}
+.libactions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.libactions label.btn input{display:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+.card{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.card .open{display:block;width:100%;border:0;padding:0;background:#fff;cursor:pointer}
+.card img{display:block;width:100%;aspect-ratio:900/1189;object-fit:contain;background:#fff}
+.card .meta{padding:8px 10px 10px;display:flex;flex-direction:column;gap:4px}
+.card .row{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.card .num{font-weight:700}
+.badge{font-size:12px;font-weight:700;border-radius:99px;padding:3px 9px;white-space:nowrap}
+.badge.ok{background:var(--green-soft);color:var(--green)}
+.badge.bad{background:color-mix(in srgb,var(--red) 16%,transparent);color:var(--red)}
+.badge.none{background:var(--surface2);color:var(--muted)}
+.card .warn{font-size:12px;color:var(--yellow)}
+.card .size{font-size:12px;color:var(--muted)}
+.label{font-size:14px;color:var(--muted);min-width:88px}
+#exportSettings{margin:-4px 0 14px}
+.backup{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:0 0 14px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between}
+.backuptext{display:flex;flex-direction:column;font-size:14px;min-width:200px;flex:1}
+.backuptext span{color:var(--muted)}
+.backuptext span.warn{color:var(--yellow)}
+#exportSettings .seg button{padding:6px 10px}
+.card .del{position:absolute;top:6px;right:6px;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:14px}
+.card .del.armed{background:var(--red);border-color:var(--red);color:#fff;width:auto;border-radius:18px;padding:0 10px;font-size:13px}
+.empty{border:2px dashed var(--line);border-radius:18px;padding:34px 18px;text-align:center;color:var(--muted)}
+.libstatus{min-height:22px;color:var(--muted);font-size:14px;margin:-6px 0 12px}
+.saved{font-size:12px;color:var(--muted)}
+.saved::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:5px;vertical-align:1px}
+/* ---------- editor ---------- */
+#ed{position:fixed;inset:0;display:none;flex-direction:column;background:var(--bg);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+#ed.open{display:flex}
+.top{display:flex;align-items:center;gap:4px;padding:8px 6px;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .mid{flex:1;min-width:52px;text-align:center;line-height:1.15}
+.top .mid b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .grp{display:flex;gap:4px}
+.top .ib{width:42px;height:44px}
+.top .mid .saved{font-size:11px}
+#stage{position:relative;flex:1;overflow:hidden;background:var(--stage);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+#stage canvas{position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none}
+.zoombox{position:absolute;right:8px;bottom:8px;display:flex;flex-direction:column;gap:6px;z-index:2}
+.zoombox .ib{width:40px;height:40px;opacity:.92}
+.flag{position:absolute;left:8px;top:8px;z-index:2;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px 10px;font-size:13px;font-weight:600;display:none}
+.flag.on{display:block}
+.bottom{background:var(--surface);border-top:1px solid var(--line)}
+.panel{padding:12px 14px 6px;max-height:42vh;overflow:auto}
+.panel h3{margin:0 0 6px;font-size:16px}
+.panel p{margin:4px 0 10px;color:var(--muted);font-size:14px}
+.prow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.chip{min-height:40px;border-radius:12px;border:1px solid var(--line);background:var(--surface2);padding:6px 12px;display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--ink)}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block;flex:none}
+.slider{display:flex;align-items:center;gap:10px;margin:8px 0}
+.slider input{flex:1;height:44px;accent-color:var(--green)}
+.slider .v{min-width:64px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.slider small{color:var(--muted)}
+.seg{display:inline-flex;background:var(--surface2);border:1px solid var(--line);border-radius:14px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;min-height:40px;padding:6px 14px;border-radius:11px;font-weight:600;cursor:pointer;font-size:14px}
+.seg button[aria-pressed="true"]{background:var(--green);color:var(--green-text)}
+.fixbar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;background:var(--green-soft);border-radius:14px;padding:10px 12px;margin-bottom:8px;font-size:14px;font-weight:600}
+.note{font-size:13px;color:var(--yellow);margin:4px 0 8px}
+.tray{display:flex;justify-content:space-around;padding:4px 4px 6px;border-top:1px solid var(--line)}
+.tool{flex:1;max-width:96px;min-height:54px;border:0;background:transparent;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
+.tool[aria-pressed="true"]{color:var(--green);background:var(--green-soft)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(68px + env(safe-area-inset-top,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:14px;font-size:14px;font-weight:600;z-index:60;max-width:88vw;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.on{opacity:1}
+#ready{position:fixed;left:0;right:0;bottom:0;z-index:70;background:var(--surface);border-top:2px solid var(--green);padding:12px 14px calc(12px + env(safe-area-inset-bottom,0px));display:none;flex-wrap:wrap;gap:10px;align-items:center}
+#ready.on{display:flex}
+#ready .t{flex:1;min-width:150px;font-size:14px}
+#ready a.btn{text-decoration:none;color:var(--green-text)}
+.busy{position:fixed;inset:0;background:color-mix(in srgb,var(--bg) 55%,transparent);z-index:80;display:none;align-items:center;justify-content:center}
+.busy.on{display:flex}
+.busy div{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 22px;font-weight:600}
+@media (prefers-reduced-motion: reduce){ .toast{transition:none} }
+@media (min-width:700px){ .panel{max-width:760px;margin:0 auto} }
+@media (orientation:landscape) and (max-height:600px){
+  #ed.open{display:grid;grid-template-columns:1fr minmax(300px,36%);grid-template-rows:auto 1fr}
+  .top{grid-column:1/3}
+  #stage{grid-column:1;grid-row:2}
+  .bottom{grid-column:2;grid-row:2;display:flex;flex-direction:column;border-top:0;border-left:1px solid var(--line);min-height:0}
+  .panel{flex:1;max-height:none;margin:0}
+}
+</style>
+</head>
+<body>
+<main id="lib">
+  <div class="libhead">
+    <h1>Line Studio</h1>
+    <span class="saved" id="libSaved" hidden>Saved</span>
+  </div>
+  <p class="sub">Check gaps, close them, fix lines, export clean pages. Everything stays on this device.</p>
+  <div class="libactions">
+    <label class="btn primary"><input type="file" id="fileIn" accept="image/png,image/jpeg" multiple>Open pictures</label>
+    <button class="btn" id="checkAllBtn" disabled>Check all</button>
+    <button class="btn" id="exportAllBtn" disabled>Export all (ZIP)</button>
+  </div>
+  <div class="backup">
+    <div class="backuptext"><b>Backup</b><span id="backupNote">Your work is saved on this device automatically.</span></div>
+    <div class="prow">
+      <button class="btn" id="backupBtn" disabled>Save backup</button>
+      <label class="btn"><input type="file" id="restoreIn" accept=".zip,application/zip" hidden>Open backup</label>
+    </div>
+  </div>
+  <div id="exportSettings"></div>
+  <div class="libstatus" id="libStatus" role="status"></div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty">Open your line-art pages (PNG or JPG) to start.<br>Pick a whole story at once.</div>
+</main>
+
+<section id="ed" aria-label="Page editor">
+  <div class="top">
+    <button class="ib" id="backBtn" aria-label="Back to pages"><svg viewBox="0 0 24 24"><path d="M4 5h6v6H4zM14 5h6v6h-6zM4 15h6v6H4zM14 15h6v6h-6z"/></svg></button>
+    <button class="ib" id="prevBtn" aria-label="Previous page"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="mid"><b id="pageName">01</b><span class="saved" id="edSaved">Saved</span></div>
+    <button class="ib" id="nextBtn" aria-label="Next page"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+    <div class="grp">
+      <button class="ib" id="undoBtn" aria-label="Undo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+      <button class="ib" id="redoBtn" aria-label="Redo"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+      <button class="ib" id="baBtn" aria-label="Show before" aria-pressed="false"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/><path d="M12 4h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-7z" fill="currentColor" stroke="none" opacity=".35"/></svg></button>
+      <button class="ib" id="exportBtn" aria-label="Export this page"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg></button>
+    </div>
+  </div>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <canvas id="ov"></canvas>
+    <div class="flag" id="flag">Before</div>
+    <div class="zoombox">
+      <button class="ib" id="zIn" aria-label="Zoom in"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button class="ib" id="zOut" aria-label="Zoom out"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+      <button class="ib" id="zFit" aria-label="Fit page"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    </div>
+  </div>
+  <div class="bottom">
+    <div class="panel" id="panel"></div>
+    <nav class="tray" aria-label="Tools">
+      <button class="tool" data-tool="check" aria-pressed="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>Check</button>
+      <button class="tool" data-tool="close" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M4 12h5M15 12h5"/><path d="M9 12h6" stroke-dasharray="2 2"/><circle cx="12" cy="12" r="8"/></svg>Close</button>
+      <button class="tool" data-tool="lines" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M4 7h16" stroke-width="1"/><path d="M4 12h16" stroke-width="2.2"/><path d="M4 17h16" stroke-width="3.6"/></svg>Lines</button>
+      <button class="tool" data-tool="draw" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 6l3 3"/></svg>Draw</button>
+      <button class="tool" data-tool="clean" aria-pressed="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>Clean</button>
+    </nav>
+  </div>
+</section>
+
+<div class="toast" id="toast" role="status"></div>
+<div id="ready"><div class="t"><b id="readyName"></b><br><span style="color:var(--muted)">Ready. Tap to save it.</span></div><a class="btn primary" id="readyDl">Download</a><button class="btn" id="readyShare" hidden>Share / Save to Files</button><button class="ib" id="readyX" aria-label="Close">✕</button></div>
+<div class="busy" id="busy"><div id="busyText">Working…</div></div>
+<script>
+// ===================== Line Studio core (pure functions, typed arrays) =====================
+const LS = {};
+LS.binarize = function (gray, thr) {
+  const n = gray.length, b = new Uint8Array(n);
+  for (let i = 0; i < n; i++) b[i] = gray[i] < thr ? 1 : 0;
+  return b;
+};
+// Zhang–Suen thinning
+LS.skeletonize = function (bin, w, h) {
+  const s = bin.slice();
+  for (let x = 0; x < w; x++) { s[x] = 0; s[(h - 1) * w + x] = 0; }
+  for (let y = 0; y < h; y++) { s[y * w] = 0; s[y * w + w - 1] = 0; }
+  let cand = [];
+  for (let i = 0; i < s.length; i++) if (s[i]) cand.push(i);
+  const del = [];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let pass = 0; pass < 2; pass++) {
+      del.length = 0;
+      const next = [];
+      for (let k = 0; k < cand.length; k++) {
+        const i = cand[k];
+        if (!s[i]) continue;
+        next.push(i);
+        const p2 = s[i - w], p3 = s[i - w + 1], p4 = s[i + 1], p5 = s[i + w + 1],
+          p6 = s[i + w], p7 = s[i + w - 1], p8 = s[i - 1], p9 = s[i - w - 1];
+        const B = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
+        if (B < 2 || B > 6) continue;
+        const A = (!p2 && p3) + (!p3 && p4) + (!p4 && p5) + (!p5 && p6) +
+          (!p6 && p7) + (!p7 && p8) + (!p8 && p9) + (!p9 && p2);
+        if (A !== 1) continue;
+        if (pass === 0) { if (p2 * p4 * p6 || p4 * p6 * p8) continue; }
+        else { if (p2 * p4 * p8 || p2 * p6 * p8) continue; }
+        del.push(i);
+      }
+      for (const i of del) s[i] = 0;
+      if (del.length) changed = true;
+      cand = next;
+    }
+  }
+  return s;
+};
+// 4-connected labeling of free (non-line) pixels
+LS.labelFree = function (bin, w, h) {
+  const n = w * h, labels = new Int32Array(n), sizes = [0], sx = [0], sy = [0];
+  const stack = new Int32Array(n);
+  let count = 0;
+  for (let i = 0; i < n; i++) {
+    if (bin[i] || labels[i]) continue;
+    count++;
+    let sp = 0, size = 0, ax = 0, ay = 0;
+    stack[sp++] = i; labels[i] = count;
+    while (sp) {
+      const c = stack[--sp]; size++;
+      const x = c % w; ax += x; ay += (c - x) / w;
+      if (x > 0 && !bin[c - 1] && !labels[c - 1]) { labels[c - 1] = count; stack[sp++] = c - 1; }
+      if (x < w - 1 && !bin[c + 1] && !labels[c + 1]) { labels[c + 1] = count; stack[sp++] = c + 1; }
+      if (c >= w && !bin[c - w] && !labels[c - w]) { labels[c - w] = count; stack[sp++] = c - w; }
+      if (c < n - w && !bin[c + w] && !labels[c + w]) { labels[c + w] = count; stack[sp++] = c + w; }
+    }
+    sizes.push(size); sx.push(ax / size); sy.push(ay / size);
+  }
+  return { labels, count, sizes, sx, sy };
+};
+// anti-aliased round-capped line ("capsule"). mode 'ink' darkens, 'erase' lightens, 'bin' sets 1.
+LS.capsule = function (arr, w, h, x1, y1, x2, y2, r, mode) {
+  const minX = Math.max(0, Math.floor(Math.min(x1, x2) - r - 1)), maxX = Math.min(w - 1, Math.ceil(Math.max(x1, x2) + r + 1));
+  const minY = Math.max(0, Math.floor(Math.min(y1, y2) - r - 1)), maxY = Math.min(h - 1, Math.ceil(Math.max(y1, y2) + r + 1));
+  const vx = x2 - x1, vy = y2 - y1, L2 = vx * vx + vy * vy;
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const px = x + 0.5, py = y + 0.5;
+      let t = L2 ? ((px - x1) * vx + (py - y1) * vy) / L2 : 0;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const dx = px - (x1 + t * vx), dy = py - (y1 + t * vy);
+      const d = Math.sqrt(dx * dx + dy * dy);
+      let cov = r + 0.5 - d; if (cov <= 0) continue; if (cov > 1) cov = 1;
+      const i = y * w + x;
+      if (mode === 'bin') { if (cov > 0.35) arr[i] = 1; }
+      else if (mode === 'erase') { const v = Math.round(255 * cov); if (v > arr[i]) arr[i] = v; }
+      else { const v = Math.round(255 * (1 - cov)); if (v < arr[i]) arr[i] = v; }
+    }
+  }
+  return [minX, minY, maxX, maxY];
+};
+// count free pixels on the segment between two line centers = real gap width
+function gapWidth(bin, w, x1, y1, x2, y2) {
+  const len = Math.hypot(x2 - x1, y2 - y1), steps = Math.max(1, Math.ceil(len * 2));
+  let free = 0, lastIdx = -1;
+  for (let s = 0; s <= steps; s++) {
+    const x = Math.round(x1 + (x2 - x1) * s / steps), y = Math.round(y1 + (y2 - y1) * s / steps);
+    const i = y * w + x; if (i === lastIdx) continue; lastIdx = i;
+    if (!bin[i]) free++;
+  }
+  return free;
+}
+// true if the middle of the segment runs through other ink (it would cross a line, not bridge a gap)
+function crossesInk(bin, w, x1, y1, x2, y2, stroke) {
+  const len = Math.hypot(x2 - x1, y2 - y1), steps = Math.ceil(len);
+  const skip = stroke * 0.8 + 1;
+  let run = 0;
+  for (let s = 0; s <= steps; s++) {
+    const t = s / steps, d = t * len;
+    if (d < skip || d > len - skip) continue;
+    const px = Math.round(x1 + (x2 - x1) * t), py = Math.round(y1 + (y2 - y1) * t);
+    if (bin[py * w + px]) { run++; if (run > 1) return true; } else run = 0;
+  }
+  return false;
+}
+LS.gapKey = g => Math.round((g.x1 + g.x2) / 6) + ':' + Math.round((g.y1 + g.y2) / 6);
+
+// Full check. Returns gaps (confirmed leaks), loose ends, tiny shapes.
+LS.check = function (gray, w, h, opt) {
+  opt = opt || {};
+  const thr = opt.thr || 170, R = opt.radius || 16, minLen = opt.minLen || 30, tinyArea = opt.tinyArea || 40;
+  const ignored = new Set(opt.ignored || []);
+  const bin = LS.binarize(gray, thr);
+  const skel = LS.skeletonize(bin, w, h);
+  let fg = 0, sk = 0;
+  for (let i = 0; i < bin.length; i++) { fg += bin[i]; sk += skel[i]; }
+  const stroke = sk ? Math.max(1, Math.min(8, fg / sk)) : 2;
+  const N8 = [-w - 1, -w, -w + 1, -1, 1, w - 1, w, w + 1];
+  const stamp = new Int32Array(w * h), stamp2 = new Int32Array(w * h);
+  const qlen = 400000, queue = new Int32Array(qlen), depth = new Int32Array(qlen);
+  const backSteps = 8, exclDepth = Math.round(R * 2.5 + 10);
+  const ends = [], cands = [];
+  const epAt = new Int32Array(w * h);
+  // pass 1: endpoints, their direction, and whether they belong to a long stroke
+  let id = 0;
+  for (let y = 2; y < h - 2; y++) for (let x = 2; x < w - 2; x++) {
+    const i = y * w + x;
+    if (!skel[i]) continue;
+    let nb = 0; for (const d of N8) nb += skel[i + d];
+    if (nb !== 1) continue;
+    id++;
+    let h2 = 0, t2 = 0, cnt = 0, dirPt = i;
+    queue[t2] = i; depth[t2++] = 0; stamp2[i] = id;
+    while (h2 < t2 && cnt < minLen) {
+      const c = queue[h2], dp = depth[h2++]; cnt++;
+      if (dp <= backSteps) dirPt = c;
+      for (const d of N8) { const j = c + d; if (skel[j] && stamp2[j] !== id && t2 < qlen) { stamp2[j] = id; queue[t2] = j; depth[t2++] = dp + 1; } }
+    }
+    const dx0 = x - (dirPt % w), dy0 = y - ((dirPt / w) | 0), dl = Math.hypot(dx0, dy0);
+    ends.push({ x, y, id, long: cnt >= minLen, ux: dl ? dx0 / dl : 0, uy: dl ? dy0 / dl : 0, ok: dl >= 2 });
+    epAt[i] = ends.length;
+  }
+  const Rt = Math.max(3, Math.round(stroke * 1.6)); // end-to-line gaps must be small
+  for (const e of ends) {
+    if (!e.long || !e.ok) continue;
+    const { x, y, ux, uy } = e, i = y * w + x, sid = e.id + 1e6;
+    // own stroke near the end is never a target
+    let qh = 0, qt = 0;
+    queue[qt] = i; depth[qt++] = 0; stamp[i] = sid;
+    while (qh < qt) {
+      const c = queue[qh], dp = depth[qh++];
+      if (dp >= exclDepth) continue;
+      for (const d of N8) { const j = c + d; if (skel[j] && stamp[j] !== sid && qt < qlen) { stamp[j] = sid; queue[qt] = j; depth[qt++] = dp + 1; } }
+    }
+    let best = null, bestScore = 1e9, bestType = 0;
+    for (let yy = Math.max(1, y - R); yy <= Math.min(h - 2, y + R); yy++) {
+      for (let xx = Math.max(1, x - R); xx <= Math.min(w - 2, x + R); xx++) {
+        const j = yy * w + xx;
+        if (!skel[j] || stamp[j] === sid) continue;
+        const vx = xx - x, vy = yy - y, dist = Math.hypot(vx, vy);
+        if (dist > R || dist < 1.5) continue;
+        const cos = (vx * ux + vy * uy) / dist;
+        if (cos < 0.7) continue;
+        let type = 0;
+        const f = epAt[j] ? ends[epAt[j] - 1] : null;
+        if (f && f.ok && (-(vx * f.ux + vy * f.uy) / dist) >= 0.5) type = 2;      // two line ends facing each other
+        else if (dist <= Rt + stroke) type = 1;                                     // a line that stops just short of another line
+        else continue;
+        if (crossesInk(bin, w, x, y, xx, yy, stroke)) continue;
+        const score = dist * (2 - cos) * (type === 2 ? 0.8 : 1);
+        if (score < bestScore) { bestScore = score; best = { xx, yy }; bestType = type; }
+      }
+    }
+    if (!best) continue;
+    const size = gapWidth(bin, w, x, y, best.xx, best.yy);
+    if (size < 1 || (bestType === 1 && size > Rt)) continue;
+    cands.push({ x1: x, y1: y, x2: best.xx, y2: best.yy, size, end: e.id, type: bestType });
+  }
+  // dedupe facing pairs (both ends found each other): keep the smaller
+  cands.sort((a, b) => a.size - b.size);
+  const kept = [];
+  for (const c of cands) {
+    if (kept.some(k => Math.hypot(k.x1 - c.x2, k.y1 - c.y2) + Math.hypot(k.x2 - c.x1, k.y2 - c.y1) < 8 ||
+      Math.hypot((k.x1 + k.x2) / 2 - (c.x1 + c.x2) / 2, (k.y1 + k.y2) / 2 - (c.y1 + c.y2) / 2) < 4)) continue;
+    kept.push(c);
+  }
+  // confirm: with all bridges drawn, a real gap has different free areas on its two sides
+  const bb = bin.slice();
+  for (const c of kept) LS.capsule(bb, w, h, c.x1 + .5, c.y1 + .5, c.x2 + .5, c.y2 + .5, Math.max(1, stroke / 2), 'bin');
+  const lab = LS.labelFree(bb, w, h);
+  const side = (c, sgn) => {
+    const mx = (c.x1 + c.x2) / 2 + .5, my = (c.y1 + c.y2) / 2 + .5;
+    let nx = -(c.y2 - c.y1), ny = c.x2 - c.x1; const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+    for (let t = 1; t <= stroke + 6; t += 0.5) {
+      const x = Math.floor(mx + sgn * nx * t), y = Math.floor(my + sgn * ny * t);
+      if (x < 0 || y < 0 || x >= w || y >= h) return 0;
+      const l = lab.labels[y * w + x]; if (l) return l;
+    }
+    return 0;
+  };
+  const gaps = [], used = new Set();
+  for (const c of kept) {
+    const a = side(c, 1), b = side(c, -1);
+    if (a && b && a !== b) {
+      const key = LS.gapKey(c);
+      if (ignored.has(key)) { used.add(c.end); continue; }
+      c.key = key; gaps.push(c); used.add(c.end);
+    }
+  }
+  gaps.sort((a, b) => (a.y1 + a.y2) - (b.y1 + b.y2) || (a.x1 - b.x1));
+  const loose = ends.filter(e => !used.has(e.id)).map(e => ({ x: e.x, y: e.y, ux: e.ux, uy: e.uy }));
+  // tiny shapes on the page as it is now
+  const lab0 = LS.labelFree(bin, w, h), tiny = [];
+  for (let l = 1; l <= lab0.count; l++) if (lab0.sizes[l] < tinyArea && lab0.sizes[l] >= 3) tiny.push({ x: lab0.sx[l], y: lab0.sy[l], area: lab0.sizes[l], label: l });
+  return { gaps, loose, tiny, stroke, tinyLabels: lab0.labels };
+};
+LS.findConnect = function (gray, w, h, e, thr, stroke, R) {
+  R = R || 30; let best = null, bd = 1e9;
+  for (let y = Math.max(0, e.y - R); y <= Math.min(h - 1, e.y + R); y++) for (let x = Math.max(0, e.x - R); x <= Math.min(w - 1, e.x + R); x++) {
+    if (gray[y * w + x] >= thr) continue;
+    const vx = x - e.x, vy = y - e.y, d = Math.hypot(vx, vy);
+    if (d < stroke + 1.5 || d > R) continue;
+    if ((vx * e.ux + vy * e.uy) / d < 0.6) continue;
+    // there must be white between the end and the target
+    let white = 0; const st = Math.ceil(d);
+    for (let s = 1; s < st; s++) { const px = Math.round(e.x + vx * s / st), py = Math.round(e.y + vy * s / st); if (gray[py * w + px] >= thr) white++; }
+    if (!white) continue;
+    if (d < bd) { bd = d; best = { x, y }; }
+  }
+  return best;
+};
+LS.drawGaps = function (gray, w, h, gaps, stroke) {
+  const r = Math.max(0.9, stroke / 2);
+  for (const g of gaps) LS.capsule(gray, w, h, g.x1 + .5, g.y1 + .5, g.x2 + .5, g.y2 + .5, r, 'ink');
+};
+
+// ---------- line weight (smooth, never breaks a line when thinning) ----------
+LS.edt = function (mask, w, h) {
+  const INF = 1e20, n = Math.max(w, h), D = new Float32Array(w * h);
+  for (let i = 0; i < D.length; i++) D[i] = mask[i] ? 0 : INF;
+  const f = new Float64Array(n), d = new Float64Array(n), v = new Int32Array(n), z = new Float64Array(n + 1);
+  const pass = len => {
+    let k = 0; v[0] = 0; z[0] = -INF; z[1] = INF;
+    for (let q = 1; q < len; q++) {
+      let s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+      while (s <= z[k]) { k--; s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]); }
+      k++; v[k] = q; z[k] = s; z[k + 1] = INF;
+    }
+    k = 0;
+    for (let q = 0; q < len; q++) { while (z[k + 1] < q) k++; const r = q - v[k]; d[q] = r * r + f[v[k]]; }
+  };
+  for (let x = 0; x < w; x++) { for (let y = 0; y < h; y++) f[y] = D[y * w + x]; pass(h); for (let y = 0; y < h; y++) D[y * w + x] = d[y]; }
+  for (let y = 0; y < h; y++) { const o = y * w; for (let x = 0; x < w; x++) f[x] = D[o + x]; pass(w); for (let x = 0; x < w; x++) D[o + x] = d[x]; }
+  return D;
+};
+// px: total width change (-3 thinner ... +3 thicker)
+LS.lineWeight = function (gray, w, h, px, thr) {
+  const t = -px / 2, n = w * h, ink = LS.binarize(gray, thr), out = new Uint8Array(n);
+  if (t === 0) { out.set(gray); return out; }
+  if (t > 0) {
+    const white = new Uint8Array(n); for (let i = 0; i < n; i++) white[i] = 1 - ink[i];
+    const dWh = LS.edt(white, w, h), dIn = LS.edt(ink, w, h), skel = LS.skeletonize(ink, w, h);
+    for (let i = 0; i < n; i++) {
+      let keep;
+      if (ink[i]) { keep = Math.sqrt(dWh[i]) - t; keep = keep < 0 ? 0 : keep > 1 ? 1 : keep; if (skel[i] && keep < 0.95) keep = 0.95; }
+      else keep = Math.sqrt(dIn[i]) <= 1.5 ? Math.max(0, 1 - t * 1.4) : 1;
+      out[i] = Math.round(255 - (255 - gray[i]) * keep);
+    }
+  } else {
+    // thicker: grow each line outward by blending in its darkest neighbour (keeps the soft edge shape)
+    let src = gray.slice(), left = -t;
+    while (left > 0) {
+      const amt = Math.min(1, left), nx = new Uint8Array(n);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const i = y * w + x, g = src[i];
+        let m = g;
+        if (x > 0 && src[i - 1] < m) m = src[i - 1];
+        if (x < w - 1 && src[i + 1] < m) m = src[i + 1];
+        if (y > 0 && src[i - w] < m) m = src[i - w];
+        if (y < h - 1 && src[i + w] < m) m = src[i + w];
+        const dg = (v) => 255 - (255 - v) * 0.7;
+        if (x > 0 && y > 0) { const v = dg(src[i - w - 1]); if (v < m) m = v; }
+        if (x < w - 1 && y > 0) { const v = dg(src[i - w + 1]); if (v < m) m = v; }
+        if (x > 0 && y < h - 1) { const v = dg(src[i + w - 1]); if (v < m) m = v; }
+        if (x < w - 1 && y < h - 1) { const v = dg(src[i + w + 1]); if (v < m) m = v; }
+        nx[i] = Math.round(g + (m - g) * amt);
+      }
+      src = nx; left -= amt;
+    }
+    // crisp the new edge a little (only pixels that got darker), so it isn't blurry
+    for (let i = 0; i < n; i++) {
+      const v = src[i], g = gray[i];
+      if (v >= g) { out[i] = g; continue; }
+      let u = (v - 70) / 160; u = u < 0 ? 0 : u > 1 ? 1 : u; u = u * u * (3 - 2 * u);
+      out[i] = Math.min(v, Math.round(255 * u));
+    }
+  }
+  return out;
+};
+LS.strokeWidth = function (gray, w, h, thr) {
+  const bin = LS.binarize(gray, thr), sk = LS.skeletonize(bin, w, h);
+  let fg = 0, s = 0; for (let i = 0; i < bin.length; i++) { fg += bin[i]; s += sk[i]; }
+  return s ? Math.max(1, Math.min(8, fg / s)) : 2;
+};
+LS.pureBW = function (gray, thr) {
+  const o = new Uint8Array(gray.length);
+  for (let i = 0; i < gray.length; i++) o[i] = gray[i] < thr ? 0 : 255;
+  return o;
+};
+
+// ---------- tiny ZIP writer (store, no compression) ----------
+LS.crcTable = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+LS.crc32 = function (u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = LS.crcTable[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+LS.zip = function (files) { // files: [{name, data: Uint8Array}]
+  const enc = new TextEncoder(), parts = [], central = [];
+  const now = new Date();
+  const dtime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const ddate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  let offset = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name), crc = LS.crc32(f.data), size = f.data.length;
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+    lh.setUint16(10, dtime, true); lh.setUint16(12, ddate, true); lh.setUint32(14, crc, true);
+    lh.setUint32(18, size, true); lh.setUint32(22, size, true); lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+    parts.push(new Uint8Array(lh.buffer), name, f.data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+    ch.setUint16(10, 0, true); ch.setUint16(12, dtime, true); ch.setUint16(14, ddate, true); ch.setUint32(16, crc, true);
+    ch.setUint32(20, size, true); ch.setUint32(24, size, true); ch.setUint16(28, name.length, true);
+    ch.setUint32(42, offset, true);
+    central.push(new Uint8Array(ch.buffer), name);
+    offset += 30 + name.length + size;
+  }
+  let csize = 0; for (const c of central) csize += c.length;
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, csize, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type: 'application/zip' });
+};
+
+
+// ---------- line weight, high quality: work at k× resolution, then average back down ----------
+LS.lineWeightHQ = function (gray, w, h, px, thr, k) {
+  k = k || 3;
+  const t = -px / 2; // per side, in page pixels (>0 thins)
+  const out = new Uint8Array(w * h);
+  if (t === 0) { out.set(gray); return out; }
+  const W = w * k, H = h * k, N = W * H;
+  // 1. bilinear upsample + threshold at mid-gray: smooth sub-pixel line shapes
+  const ink = new Uint8Array(N);
+  const mid = 140;
+  for (let Y = 0; Y < H; Y++) {
+    const fy = (Y + 0.5) / k - 0.5, y0 = Math.max(0, Math.floor(fy)), y1 = Math.min(h - 1, y0 + 1), ty = Math.min(1, Math.max(0, fy - y0));
+    for (let X = 0; X < W; X++) {
+      const fx = (X + 0.5) / k - 0.5, x0 = Math.max(0, Math.floor(fx)), x1 = Math.min(w - 1, x0 + 1), tx = Math.min(1, Math.max(0, fx - x0));
+      const a = gray[y0 * w + x0], b = gray[y0 * w + x1], c = gray[y1 * w + x0], d = gray[y1 * w + x1];
+      const v = (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
+      ink[Y * W + X] = v < mid ? 1 : 0;
+    }
+  }
+  const res = new Uint8Array(N);
+  if (t > 0) {
+    // thin: keep ink farther than t from the white
+    const white = new Uint8Array(N); for (let i = 0; i < N; i++) white[i] = 1 - ink[i];
+    const D = LS.edt(white, W, H), lim = (t * k) * (t * k);
+    for (let i = 0; i < N; i++) res[i] = ink[i] && D[i] > lim ? 1 : 0;
+    // never break a line: keep a thin center line (skeleton at high resolution, drawn ~0.9 page px wide)
+    const skel = LS.skeletonize(ink, W, H), r = Math.max(1, Math.round(k * 0.45));
+    for (let Y = r; Y < H - r; Y++) for (let X = r; X < W - r; X++) {
+      if (!skel[Y * W + X]) continue;
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (dx * dx + dy * dy <= r * r) res[(Y + dy) * W + X + dx] = 1;
+    }
+  } else {
+    const D = LS.edt(ink, W, H), lim = (-t * k) * (-t * k);
+    for (let i = 0; i < N; i++) res[i] = ink[i] || D[i] <= lim ? 1 : 0;
+  }
+  // 2. average k×k blocks back to page size (smooth edges)
+  const kk = k * k;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let s = 0; const base = (y * k) * W + x * k;
+    for (let dy = 0; dy < k; dy++) { const o = base + dy * W; for (let dx = 0; dx < k; dx++) s += res[o + dx]; }
+    const v = Math.round(255 * (1 - s / kk)), g = gray[y * w + x];
+    // faint strokes far from the main lines are kept as they were
+    out[y * w + x] = t > 0 ? v : Math.min(v, g);
+  }
+  if (t > 0) {
+    // keep faint pencil-like strokes that were never part of a black line
+    // gray fills and faint strokes (not part of a black line's soft edge) stay as they were
+    const inkLow = LS.binarize(gray, mid), dl = LS.edt(inkLow, w, h);
+    for (let i = 0; i < w * h; i++) if (!inkLow[i] && dl[i] > 1.0) out[i] = Math.min(out[i], gray[i]);
+  }
+  return out;
+};
+
+// ---------- line weight for big (print-size) pages: rebuild the edge from a distance map ----------
+// Lines are thick here (5+ px), so the edge can be moved smoothly by fractions of a pixel.
+LS.lineWeightSDF = function (gray, w, h, px, thr) {
+  const t = -px / 2, n = w * h, mid = 128, out = new Uint8Array(n);
+  if (t === 0) { out.set(gray); return out; }
+  const ink = LS.binarize(gray, mid), white = new Uint8Array(n);
+  for (let i = 0; i < n; i++) white[i] = 1 - ink[i];
+  const dW = LS.edt(white, w, h), dI = LS.edt(ink, w, h);
+  const skel = t > 0 ? LS.skeletonize(ink, w, h) : null;
+  for (let i = 0; i < n; i++) {
+    // signed distance to the line edge (negative inside), refined with the soft edge value
+    let s = ink[i] ? -(Math.sqrt(dW[i]) - 0.5) : (Math.sqrt(dI[i]) - 0.5);
+    const g = gray[i];
+    if (ink[i] && dW[i] <= 1) s = -(mid - g) / 255 - 0.0;           // edge pixel inside: use its gray
+    else if (!ink[i] && dI[i] <= 1) s = (g - mid) / 255;             // edge pixel outside
+    let a = 0.5 - (s + t); a = a < 0 ? 0 : a > 1 ? 1 : a;
+    if (skel && skel[i] && a < 1) a = 1;
+    let v = Math.round(255 * (1 - a));
+    // gray fills and faint strokes away from the lines stay as they were
+    if (!ink[i] && Math.sqrt(dI[i]) > Math.abs(t) + 1.5) v = Math.min(v, g);
+    out[i] = t > 0 ? v : Math.min(v, g);
+  }
+  return out;
+};
+
+// ===================== Line Studio app =====================
+const TW = 900, TH = 1189, THR = 170;
+const $ = id => document.getElementById(id);
+const pages = [];
+let downloads = null;
+(async () => { try { if (window.claude && claude.use) downloads = await claude.use("downloads"); } catch (e) { downloads = null; } })();
+const pad = n => String(n).padStart(2, "0");
+const tick = () => new Promise(r => setTimeout(r, 20));
+
+// ---------- toast / busy / saved ----------
+let toastT = null;
+function toast(msg, ms = 2400) { const t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), ms); }
+function busy(on, text) { $("busy").classList.toggle("on", !!on); if (text) $("busyText").textContent = text; }
+function setSaved(state) {
+  for (const id of ["edSaved", "libSaved"]) { const el = $(id); el.hidden = false; el.textContent = state === "saving" ? "Saving…" : state === "error" ? "Not saved" : "Saved"; }
+}
+
+// ---------- storage (IndexedDB): small "meta" records + big pixel records, loaded one page at a time ----------
+let dbp = null, dbOK = true;
+function db() {
+  if (dbp) return dbp;
+  dbp = new Promise((res, rej) => {
+    let r; try { r = indexedDB.open("line-studio", 2); } catch (e) { return rej(e); }
+    r.onupgradeneeded = ev => {
+      const d = r.result, tx = r.transaction;
+      if (!d.objectStoreNames.contains("meta")) d.createObjectStore("meta", { keyPath: "id" });
+      if (!d.objectStoreNames.contains("px")) d.createObjectStore("px", { keyPath: "id" });
+      if (d.objectStoreNames.contains("pages")) {           // move pages saved by older versions
+        const old = tx.objectStore("pages"), M = tx.objectStore("meta"), P = tx.objectStore("px");
+        old.openCursor().onsuccess = e => {
+          const c = e.target.result;
+          if (!c) { d.deleteObjectStore("pages"); return; }
+          const r0 = c.value, base = r0.base || r0.data;
+          P.put({ id: r0.id, base, edit: r0.edit || null });
+          const m = { ...r0 }; delete m.base; delete m.edit; delete m.data; M.put(m);
+          c.continue();
+        };
+      }
+    };
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  return dbp;
+}
+async function dbDo(store, mode, fn) {
+  const d = await db();
+  return new Promise((res, rej) => {
+    const t = d.transaction(store, mode); const r = fn(t.objectStore(store));
+    t.oncomplete = () => res(r && r.result); t.onerror = t.onabort = () => rej(t.error);
+  });
+}
+const dirty = new Set(); let saveT = null, pxDirty = false;
+function markDirty(p) { dirty.add(p); setSaved("saving"); clearTimeout(saveT); saveT = setTimeout(flushSave, 900); }
+function markPx() { pxDirty = true; if (E.p) markDirty(E.p); noteChange(); }
+function metaRecord(p) {
+  return { id: p.id, name: p.name, order: p.order, w: p.w, h: p.h, status: p.status, gapCount: p.gapCount, thumb: p.thumb || null,
+    ignored: p.ignored || [], ignoredLoose: p.ignoredLoose || [], ignoredTiny: p.ignoredTiny || [] };
+}
+async function flushSave() {
+  clearTimeout(saveT);
+  if (!dirty.size && !pxDirty) { setSaved("ok"); return; }
+  const list = [...dirty]; dirty.clear();
+  try {
+    if (list.length) await dbDo("meta", "readwrite", s => { let r; for (const p of list) r = s.put(metaRecord(p)); return r; });
+    if (pxDirty && E.p && E.base) { pxDirty = false; await dbDo("px", "readwrite", s => s.put({ id: E.p.id, base: E.base.slice().buffer, edit: E.edit.slice().buffer })); }
+    setSaved("ok");
+  } catch (e) { dbOK = false; setSaved("error"); toast("Couldn’t save. This device may be out of space."); }
+}
+async function loadPx(p) {
+  const r = await dbDo("px", "readonly", s => s.get(p.id));
+  if (!r) return null;
+  const base = new Uint8Array(r.base), edit = r.edit ? new Uint8Array(r.edit) : new Uint8Array(base.length).fill(255);
+  const gray = new Uint8Array(base.length); compose(base, edit, gray);
+  return { base, edit, gray };
+}
+async function loadAll() {
+  try {
+    const list = await dbDo("meta", "readonly", s => s.getAll());
+    list.sort((a, b) => a.order - b.order);
+    for (const r of list) pages.push(r);
+    if (list.length) setSaved("ok");
+  } catch (e) { dbOK = false; $("libStatus").textContent = "Autosave isn’t available here, so work is lost when you close this page."; }
+  renderGrid();
+  // pages saved by older versions have no thumbnail yet
+  for (const p of pages) if (!p.thumb) { const px = await loadPx(p).catch(() => null); if (px) { makeThumb(p, px.gray); markDirty(p); } }
+  renderGrid();
+}
+// scale-aware settings: tuned for 900 px wide pages, grow with bigger (print) pages
+const scaleOf = w => Math.max(1, w / 900);
+function checkOpts(p) { const f = scaleOf(p.w); return { thr: THR, ignored: p.ignored, radius: Math.round(16 * f), minLen: Math.round(30 * f), tinyArea: Math.round(40 * f * f) }; }
+
+// ---------- import (pictures keep their own size, nothing is resized) ----------
+async function importFiles(fileList) {
+  const files = [...fileList].filter(f => /^image\/(png|jpe?g)$/.test(f.type) || /\.(png|jpe?g)$/i.test(f.name));
+  if (!files.length) return;
+  files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  let order = pages.reduce((m, p) => Math.max(m, p.order), 0), ok = 0;
+  for (let k = 0; k < files.length; k++) {
+    busy(true, `Opening ${k + 1} of ${files.length}…`); await tick();
+    try {
+      const bmp = await createImageBitmap(files[k]);
+      const w = bmp.width, h = bmp.height;
+      const c = document.createElement("canvas"); c.width = w; c.height = h;
+      const ctx = c.getContext("2d", { willReadFrequently: true });
+      ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); ctx.drawImage(bmp, 0, 0);
+      const d = ctx.getImageData(0, 0, w, h).data, gray = new Uint8Array(w * h);
+      for (let i = 0, j = 0; i < gray.length; i++, j += 4) gray[i] = (d[j] * 0.299 + d[j + 1] * 0.587 + d[j + 2] * 0.114 + 0.5) | 0;
+      c.width = c.height = 1; if (bmp.close) bmp.close();
+      const p = { id: "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: files[k].name.replace(/\.[^.]+$/, ""),
+        order: ++order, w, h, status: "unchecked", gapCount: 0, ignored: [], ignoredLoose: [], ignoredTiny: [], thumb: null };
+      makeThumb(p, gray);
+      await dbDo("px", "readwrite", s => s.put({ id: p.id, base: gray.buffer, edit: null }));
+      await dbDo("meta", "readwrite", s => s.put(metaRecord(p)));
+      pages.push(p); ok++;
+    } catch (e) { toast("Couldn’t open " + files[k].name); }
+  }
+  busy(false); setSaved("ok"); if (ok) noteChange(); renderGrid();
+  const sizes = [...new Set(pages.slice(-ok).map(p => p.w + "×" + p.h))];
+  $("libStatus").textContent = `Opened ${ok} ${ok === 1 ? "page" : "pages"} (${sizes.join(", ")}).` + (pages.slice(-ok).some(p => p.w < 2400) ? " For print, pages should be about 2550 wide." : "");
+}
+$("fileIn").addEventListener("change", e => { importFiles(e.target.files); e.target.value = ""; });
+
+// ---------- library ----------
+function makeThumb(p, gray) {
+  const c = document.createElement("canvas"); c.width = p.w; c.height = p.h;
+  const ctx = c.getContext("2d"), img = ctx.createImageData(p.w, p.h), d = img.data;
+  for (let i = 0, j = 0; i < gray.length; i++, j += 4) { d[j] = d[j + 1] = d[j + 2] = gray[i]; d[j + 3] = 255; }
+  ctx.putImageData(img, 0, 0);
+  const tw = 260, th = Math.round(p.h * tw / p.w), t = document.createElement("canvas"); t.width = tw; t.height = th;
+  const tc = t.getContext("2d"); tc.imageSmoothingQuality = "high"; tc.drawImage(c, 0, 0, tw, th);
+  p.thumb = t.toDataURL("image/jpeg", 0.82); c.width = c.height = 1;
+}
+function badgeFor(p) {
+  if (p.status === "closed") return ["ok", "Closed"];
+  if (p.status === "gaps") return ["bad", p.gapCount + (p.gapCount === 1 ? " gap" : " gaps")];
+  return ["none", "Not checked"];
+}
+function renderGrid() {
+  const g = $("grid"); g.innerHTML = "";
+  $("empty").hidden = pages.length > 0;
+  $("checkAllBtn").disabled = $("exportAllBtn").disabled = !pages.length;
+  renderExportSettings(); renderBackupNote();
+  pages.forEach((p, idx) => {
+    const card = document.createElement("div"); card.className = "card";
+    const open = document.createElement("button"); open.className = "open"; open.type = "button";
+    open.setAttribute("aria-label", "Edit page " + pad(idx + 1));
+    const img = document.createElement("img"); if (p.thumb) img.src = p.thumb; img.alt = ""; open.append(img);
+    open.addEventListener("click", () => openEditor(idx));
+    const del = document.createElement("button"); del.className = "del"; del.type = "button"; del.textContent = "✕";
+    del.setAttribute("aria-label", "Remove page " + pad(idx + 1));
+    del.addEventListener("click", async () => {
+      if (!del.classList.contains("armed")) { del.classList.add("armed"); del.textContent = "Remove?"; setTimeout(() => { del.classList.remove("armed"); del.textContent = "✕"; }, 3000); return; }
+      pages.splice(idx, 1); dirty.delete(p);
+      try { await dbDo("meta", "readwrite", s => s.delete(p.id)); await dbDo("px", "readwrite", s => s.delete(p.id)); } catch (e) {}
+      renderGrid();
+    });
+    const meta = document.createElement("div"); meta.className = "meta";
+    const row = document.createElement("div"); row.className = "row";
+    const num = document.createElement("span"); num.className = "num"; num.textContent = pad(idx + 1);
+    const [cls, txt] = badgeFor(p); const b = document.createElement("span"); b.className = "badge " + cls; b.textContent = txt;
+    row.append(num, b); meta.append(row);
+    const sz = document.createElement("span"); sz.className = "size"; sz.textContent = `${p.w}×${p.h}`; meta.append(sz);
+    card.append(open, del, meta); g.append(card);
+  });
+}
+$("checkAllBtn").addEventListener("click", async () => {
+  let total = 0, open = 0;
+  for (let k = 0; k < pages.length; k++) {
+    busy(true, `Checking ${k + 1} of ${pages.length}…`); await tick();
+    const p = pages[k], px = await loadPx(p); if (!px) continue;
+    const r = LS.check(px.gray, p.w, p.h, checkOpts(p));
+    p.gapCount = r.gaps.length; p.status = r.gaps.length ? "gaps" : "closed"; total += r.gaps.length; if (r.gaps.length) open++;
+    markDirty(p);
+  }
+  busy(false); await flushSave(); renderGrid();
+  $("libStatus").textContent = open ? `${open} of ${pages.length} pages have gaps (${total} in total). Tap a page to fix it.` : "All pages are closed.";
+});
+
+// ---------- backup: one file with everything, keep it in Files / iCloud to continue any time ----------
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function noteChange() { lsSet("ls-changed", String(Date.now())); renderBackupNote(); }
+function renderBackupNote() {
+  const n = $("backupNote"); if (!n) return;
+  $("backupBtn").disabled = !pages.length;
+  const last = +lsGet("ls-backup") || 0, changed = +lsGet("ls-changed") || 0;
+  const days = last ? Math.floor((Date.now() - last) / 864e5) : -1;
+  n.classList.remove("warn");
+  if (!pages.length) { n.textContent = "Open a backup file to continue earlier work."; return; }
+  if (!last) { n.textContent = "Saved on this device. Save a backup to Files or iCloud so you never lose it."; n.classList.add("warn"); return; }
+  const when = days === 0 ? "today" : days === 1 ? "yesterday" : days + " days ago";
+  if (changed > last) { n.textContent = `Last backup ${when}. You have changes since then.`; n.classList.add("warn"); }
+  else n.textContent = `Last backup ${when}. Everything is backed up.`;
+}
+async function grayPng(arr, w, h) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const ctx = c.getContext("2d"), img = ctx.createImageData(w, h), d = img.data;
+  for (let i = 0, j = 0; i < arr.length; i++, j += 4) { d[j] = d[j + 1] = d[j + 2] = arr[i]; d[j + 3] = 255; }
+  ctx.putImageData(img, 0, 0);
+  const blob = await new Promise(r => c.toBlob(r, "image/png")); c.width = c.height = 1;
+  return new Uint8Array(await blob.arrayBuffer());
+}
+async function pngGray(bytes) {
+  const bmp = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
+  const w = bmp.width, h = bmp.height, c = document.createElement("canvas"); c.width = w; c.height = h;
+  const ctx = c.getContext("2d", { willReadFrequently: true }); ctx.drawImage(bmp, 0, 0);
+  const d = ctx.getImageData(0, 0, w, h).data, g = new Uint8Array(w * h);
+  for (let i = 0, j = 0; i < g.length; i++, j += 4) g[i] = d[j];
+  c.width = c.height = 1; if (bmp.close) bmp.close();
+  return { g, w, h };
+}
+$("backupBtn").addEventListener("click", async () => {
+  if (E.p) await flushSave();
+  const files = [], list = [];
+  for (let k = 0; k < pages.length; k++) {
+    busy(true, `Backing up ${k + 1} of ${pages.length}…`); await tick();
+    const p = pages[k], px = await loadPx(p); if (!px) continue;
+    files.push({ name: `${p.id}-original.png`, data: await grayPng(px.base, p.w, p.h) });
+    if (hasInk(px.edit)) files.push({ name: `${p.id}-new-lines.png`, data: await grayPng(px.edit, p.w, p.h) });
+    const m = metaRecord(p); delete m.thumb; list.push(m);
+  }
+  files.unshift({ name: "line-studio.json", data: new TextEncoder().encode(JSON.stringify({ app: "Line Studio", version: 2, saved: new Date().toISOString(), pages: list })) });
+  busy(true, "Making the backup file…"); await tick();
+  const zip = LS.zip(files); busy(false);
+  const d = new Date(), stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  await deliver(`line-studio-backup-${stamp}.zip`, zip);
+  lsSet("ls-backup", String(Date.now())); renderBackupNote();
+});
+// read a ZIP (stored or deflated) without libraries
+async function unzip(buf) {
+  const u8 = new Uint8Array(buf), dv = new DataView(buf), out = {};
+  let e = u8.length - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error("not a zip");
+  const count = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true);
+  for (let k = 0; k < count; k++) {
+    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nlen = dv.getUint16(p + 28, true),
+      xlen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
+    const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nlen));
+    const start = off + 30 + dv.getUint16(off + 26, true) + dv.getUint16(off + 28, true), raw = u8.subarray(start, start + csize);
+    if (method === 0) out[name] = raw;
+    else if (method === 8 && typeof DecompressionStream !== "undefined") out[name] = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer());
+    p += 46 + nlen + xlen + clen;
+  }
+  return out;
+}
+$("restoreIn").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  try {
+    busy(true, "Reading the backup…"); await tick();
+    const z = await unzip(await f.arrayBuffer()), key = Object.keys(z).find(n => n.endsWith("line-studio.json"));
+    if (!key) throw new Error("no index");
+    const prefix = key.slice(0, key.length - "line-studio.json".length);
+    const info = JSON.parse(new TextDecoder().decode(z[key]));
+    let n = 0;
+    for (let k = 0; k < info.pages.length; k++) {
+      const m = info.pages[k]; busy(true, `Restoring ${k + 1} of ${info.pages.length}…`); await tick();
+      const ob = z[prefix + m.id + "-original.png"]; if (!ob) continue;
+      const base = await pngGray(ob), nb = z[prefix + m.id + "-new-lines.png"], edit = nb ? (await pngGray(nb)).g : null;
+      const comp = new Uint8Array(base.g.length); if (edit) compose(base.g, edit, comp); else comp.set(base.g);
+      const old = pages.findIndex(q => q.id === m.id);
+      const p = { ...m, w: base.w, h: base.h, thumb: null };
+      makeThumb(p, comp);
+      await dbDo("px", "readwrite", s => s.put({ id: p.id, base: base.g.buffer, edit: edit ? edit.buffer : null }));
+      await dbDo("meta", "readwrite", s => s.put(metaRecord(p)));
+      if (old >= 0) pages[old] = p; else pages.push(p);
+      n++;
+    }
+    pages.sort((a, b) => a.order - b.order);
+    busy(false); renderGrid();
+    lsSet("ls-backup", String(Date.now())); lsSet("ls-changed", "0"); renderBackupNote();
+    $("libStatus").textContent = `Restored ${n} ${n === 1 ? "page" : "pages"} from the backup (saved ${new Date(info.saved).toLocaleDateString()}).`;
+  } catch (err) { busy(false); toast("That file isn’t a Line Studio backup."); }
+});
+// ask the browser to keep this storage (not clear it when space is low)
+(async () => { try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) {} })();
+
+// ---------- export: sizes and edges ----------
+let exportMode = "smooth", exportSize = "orig";
+try { exportMode = localStorage.getItem("ls-export") || "smooth"; exportSize = localStorage.getItem("ls-size") || "orig"; } catch (e) {}
+function setExportMode(m) { exportMode = m; try { localStorage.setItem("ls-export", m); } catch (e) {} renderExportSettings(); }
+function setExportSize(m) { exportSize = m; try { localStorage.setItem("ls-size", m); } catch (e) {} renderExportSettings(); }
+const SIZES = { orig: ["Original (print)", 0], app: ["App 900", 900], video: ["Video 1080", 1080] };
+function renderExportSettings() {
+  const box = $("exportSettings"); if (!box) return; box.innerHTML = "";
+  const mk = (label, opts, cur, set) => {
+    const seg = document.createElement("div"); seg.className = "seg"; seg.setAttribute("role", "group"); seg.setAttribute("aria-label", label);
+    for (const [k, t] of opts) { const b = document.createElement("button"); b.type = "button"; b.textContent = t; b.setAttribute("aria-pressed", String(cur === k)); b.onclick = () => set(k); seg.append(b); }
+    const row = document.createElement("div"); row.className = "prow"; const l = document.createElement("span"); l.className = "label"; l.textContent = label; row.append(l, seg); return row;
+  };
+  box.append(mk("Export size", Object.entries(SIZES).map(([k, v]) => [k, v[0]]), exportSize, setExportSize),
+    mk("Edges", [["smooth", "Smooth"], ["bw", "Pure black & white"]], exportMode, setExportMode));
+}
+// area-average shrink (sharp and clean); never enlarges
+function shrink(gray, w, h, nw) {
+  if (!nw || nw >= w) return { g: gray, w, h };
+  const nh = Math.round(h * nw / w), r = w / nw, rv = h / nh;
+  const tmp = new Float32Array(nw * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < nw; x++) {
+    const a = x * r, b = a + r; let s = 0;
+    for (let sx = Math.floor(a); sx < Math.ceil(b) && sx < w; sx++) s += gray[y * w + sx] * (Math.min(b, sx + 1) - Math.max(a, sx));
+    tmp[y * nw + x] = s / r;
+  }
+  const out = new Uint8Array(nw * nh);
+  for (let x = 0; x < nw; x++) for (let y = 0; y < nh; y++) {
+    const a = y * rv, b = a + rv; let s = 0;
+    for (let sy = Math.floor(a); sy < Math.ceil(b) && sy < h; sy++) s += tmp[sy * nw + x] * (Math.min(b, sy + 1) - Math.max(a, sy));
+    out[y * nw + x] = Math.round(s / rv);
+  }
+  return { g: out, w: nw, h: nh };
+}
+async function pngBytes(p, gray) {
+  const sz = shrink(gray, p.w, p.h, SIZES[exportSize][1]);
+  const c = document.createElement("canvas"); c.width = sz.w; c.height = sz.h;
+  const ctx = c.getContext("2d"), img = ctx.createImageData(sz.w, sz.h), d = img.data;
+  const bw = exportMode === "bw";
+  for (let i = 0, j = 0; i < sz.g.length; i++, j += 4) { const v = bw ? (sz.g[i] < THR ? 0 : 255) : sz.g[i]; d[j] = d[j + 1] = d[j + 2] = v; d[j + 3] = 255; }
+  ctx.putImageData(img, 0, 0);
+  const blob = await new Promise(r => c.toBlob(r, "image/png")); c.width = c.height = 1;
+  return { bytes: new Uint8Array(await blob.arrayBuffer()), w: sz.w, h: sz.h };
+}
+async function deliver(filename, blob) {
+  let dl = downloads;
+  if (!dl && window.claude && claude.use) { try { dl = await claude.use("downloads"); downloads = dl; } catch (e) { dl = null; } }
+  if (dl) {
+    try { await dl.save({ filename, data: blob }); toast("Saved " + filename); return; }
+    catch (e) {
+      const code = e && e.code;
+      if (code === "declined") { toast("Not saved."); return; }
+      if (code === "rate_limited") { toast("A save window is already open. Try again in a moment."); return; }
+      if (code === "too_large") { toast("This file is too large to save here."); return; }
+    }
+  }
+  const url = URL.createObjectURL(blob), a = $("readyDl");
+  if (a.dataset.url) URL.revokeObjectURL(a.dataset.url);
+  a.href = url; a.dataset.url = url; a.download = filename;
+  $("readyName").textContent = filename;
+  const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
+  const canShare = navigator.canShare && navigator.canShare({ files: [file] });
+  $("readyShare").hidden = !canShare;
+  $("readyShare").onclick = () => navigator.share({ files: [file] }).catch(() => {});
+  $("ready").classList.add("on");
+}
+$("readyX").addEventListener("click", () => $("ready").classList.remove("on"));
+$("exportAllBtn").addEventListener("click", async () => {
+  if (E.p) await flushSave();
+  const files = [];
+  for (let k = 0; k < pages.length; k++) {
+    busy(true, `Preparing ${k + 1} of ${pages.length}…`); await tick();
+    const px = await loadPx(pages[k]); if (!px) continue;
+    files.push({ name: pad(k + 1) + ".png", data: (await pngBytes(pages[k], px.gray)).bytes });
+  }
+  busy(true, "Making the ZIP…"); await tick();
+  const zip = LS.zip(files); busy(false);
+  await deliver(`pages-${exportSize}.zip`, zip);
+});
+
+// ---------- layers: original lines (base) + new lines (edit); what you see = darker of the two ----------
+function compose(b, e, out, rect, w) {
+  if (!rect) { for (let i = 0; i < out.length; i++) out[i] = b[i] < e[i] ? b[i] : e[i]; return; }
+  const [x0, y0, x1, y1] = rect;
+  for (let y = y0; y <= y1; y++) for (let i = y * w + x0, end = y * w + x1; i <= end; i++) out[i] = b[i] < e[i] ? b[i] : e[i];
+}
+function hasInk(a) { for (let i = 0; i < a.length; i++) if (a[i] < 250) return true; return false; }
+
+// ===================== editor =====================
+const E = { idx: -1, p: null, w: 0, h: 0, gray: null, opened: null, undo: [], redo: [], tool: "check", res: null, sel: -1,
+  showLoose: false, showTiny: false, closeN: 4, lineVal: 0, preview: null, before: false, pen: "pen", size: 4,
+  view: { s: 1, ox: 0, oy: 0 }, fitS: 1, base: null, edit: null, pend: null, erase: "orig", colorNew: true, selKind: "gap" };
+const stage = $("stage"), cv = $("cv"), ov = $("ov"), ctx = cv.getContext("2d"), octx = ov.getContext("2d");
+let layerCv = document.createElement("canvas"), lctx = layerCv.getContext("2d"), limg = null, dpr = 1;
+
+let opening = false;
+async function openEditor(idx) {
+  if (opening) return; opening = true;
+  try {
+    if (E.p) await leavePage();
+    const p = pages[idx]; if (!p) return;
+    busy(true, "Opening…"); await tick();
+    const px = await loadPx(p); busy(false);
+    if (!px) { toast("Couldn’t open this page. Try opening the picture again."); return; }
+    const f = scaleOf(p.w);
+    Object.assign(E, { stroke: 0, idx, p, w: p.w, h: p.h, gray: px.gray, base: px.base, edit: px.edit, pend: null, opened: px.gray.slice(), undo: [], redo: [], undoBytes: 0, res: null, sel: -1, preview: null, before: false, lineVal: 0,
+      f, tmpB: null, tmpE: null, closeN: Math.round(4 * f), closeMax: Math.round(8 * f), size: Math.round(4 * f), sizeMax: Math.round(24 * f) });
+    openPage(p, idx);
+  } finally { opening = false; }
+}
+function openPage(p, idx) {
+  layerCv.width = p.w; layerCv.height = p.h; limg = lctx.createImageData(p.w, p.h);
+  for (let j = 3; j < limg.data.length; j += 4) limg.data[j] = 255;
+  $("lib").hidden = true; $("ed").classList.add("open");
+  $("pageName").textContent = `${pad(idx + 1)} / ${pad(pages.length)}`;
+  $("prevBtn").disabled = idx === 0; $("nextBtn").disabled = idx === pages.length - 1;
+  resize(); fit(); paintLayer(); setTool(E.tool, true); updateUndo();
+  if (p.status !== "unchecked") runCheck(true);
+}
+async function leavePage() {
+  if (!E.p) return;
+  stopAnim(); clearTimeout(recheckT);
+  if (E.thumbStale) { makeThumb(E.p, E.gray); E.thumbStale = false; markDirty(E.p); }
+  await flushSave();
+  // free the big arrays of this page
+  Object.assign(E, { p: null, base: null, edit: null, gray: null, opened: null, preview: null, pend: null, undo: [], redo: [], tmpB: null, tmpE: null, res: null });
+  layerCv.width = layerCv.height = 1; limg = null;
+}
+$("backBtn").addEventListener("click", async () => { await leavePage(); $("ed").classList.remove("open"); $("lib").hidden = false; renderGrid(); });
+$("prevBtn").addEventListener("click", () => { if (E.idx > 0) openEditor(E.idx - 1); });
+$("nextBtn").addEventListener("click", () => { if (E.idx < pages.length - 1) openEditor(E.idx + 1); });
+
+// ---------- rendering ----------
+function shown() { return E.before ? (E.preview ? E.gray : E.opened) : (E.preview || E.gray); }
+function paintLayer(rect) {
+  const arr = shown(), w = E.w, d = limg.data;
+  const [x0, y0, x1, y1] = rect || [0, 0, E.w - 1, E.h - 1];
+  const tint = E.colorNew && arr === E.gray && E.tool !== "lines" && E.tool !== "clean";
+  for (let y = y0; y <= y1; y++) {
+    let i = y * w + x0, j = i * 4;
+    for (let x = x0; x <= x1; x++, i++, j += 4) {
+      const v = arr[i];
+      if (tint && E.edit[i] < E.base[i] && E.edit[i] < 250) { const a = (255 - E.edit[i]) / 255; d[j] = 255 - 225 * a; d[j + 1] = 255 - 140 * a; d[j + 2] = 255 - 20 * a; }
+      else { d[j] = d[j + 1] = d[j + 2] = v; }
+    }
+  }
+  lctx.putImageData(limg, 0, 0, x0, y0, x1 - x0 + 1, y1 - y0 + 1);
+  render();
+}
+function resize() {
+  const r = stage.getBoundingClientRect(); dpr = Math.min(3, window.devicePixelRatio || 1);
+  for (const c of [cv, ov]) { c.width = Math.max(1, Math.round(r.width * dpr)); c.height = Math.max(1, Math.round(r.height * dpr)); }
+  E.cw = r.width; E.ch = r.height;
+  E.fitS = Math.min(r.width / (E.w || 1), r.height / (E.h || 1)) * 0.94;
+}
+function fit() { const s = E.fitS; E.view = { s, ox: (E.cw - E.w * s) / 2, oy: (E.ch - E.h * s) / 2 }; render(); }
+function render() {
+  if (!E.p) return;
+  const { s, ox, oy } = E.view;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy);
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(layerCv, 0, 0);
+  renderOverlay();
+}
+const toScreen = (x, y) => [x * E.view.s + E.view.ox, y * E.view.s + E.view.oy];
+const toImage = (sx, sy) => [(sx - E.view.ox) / E.view.s, (sy - E.view.oy) / E.view.s];
+let animOn = false, linePrev = null;
+function renderOverlay(t = performance.now()) {
+  octx.setTransform(1, 0, 0, 1, 0, 0); octx.clearRect(0, 0, ov.width, ov.height);
+  octx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const cs = getComputedStyle(document.documentElement);
+  const red = cs.getPropertyValue("--red").trim(), green = cs.getPropertyValue("--green").trim(), yel = cs.getPropertyValue("--yellow").trim(), gray = cs.getPropertyValue("--gray").trim();
+  if (E.res && !E.before && (E.tool === "check" || E.tool === "close" || E.tool === "draw")) {
+    if (E.showLoose) { octx.fillStyle = gray; for (const l of E.res.loose) { const [x, y] = toScreen(l.x + .5, l.y + .5); octx.beginPath(); octx.arc(x, y, 3.5, 0, 7); octx.fill(); } }
+    if (E.showTiny) { octx.strokeStyle = yel; octx.lineWidth = 2; for (const q of E.res.tiny) { const [x, y] = toScreen(q.x + .5, q.y + .5); octx.beginPath(); octx.arc(x, y, 6, 0, 7); octx.stroke(); } }
+    const sg = E.selKind === "gap" && E.tool === "check" ? E.res.gaps[E.sel] : null;
+    if (sg) { const [a, b] = toScreen(sg.x1 + .5, sg.y1 + .5), [c, d] = toScreen(sg.x2 + .5, sg.y2 + .5); octx.setLineDash([4, 3]); octx.lineWidth = 2.5; octx.strokeStyle = green; octx.beginPath(); octx.moveTo(a, b); octx.lineTo(c, d); octx.stroke(); octx.setLineDash([]); }
+    const si = E.selKind === "loose" ? E.res.loose[E.sel] : E.selKind === "tiny" ? E.res.tiny[E.sel] : null;
+    if (si) {
+      const [x, y] = toScreen(si.x + .5, si.y + .5);
+      octx.strokeStyle = E.selKind === "loose" ? gray : yel; octx.lineWidth = 4; octx.beginPath(); octx.arc(x, y, 18, 0, 7); octx.stroke();
+      if (E.selKind === "loose" && E.connect) { const [a, b] = toScreen(E.connect.x + .5, E.connect.y + .5); octx.setLineDash([4, 4]); octx.lineWidth = 2; octx.strokeStyle = green; octx.beginPath(); octx.moveTo(x, y); octx.lineTo(a, b); octx.stroke(); octx.setLineDash([]); }
+    }
+    const pulse = Math.sin(t / 260) * 3;
+    E.res.gaps.forEach((g, i) => {
+      const [x, y] = toScreen((g.x1 + g.x2) / 2 + .5, (g.y1 + g.y2) / 2 + .5);
+      const willClose = E.tool === "close" && g.size <= E.closeN;
+      const col = willClose ? green : red, sel = E.selKind === "gap" && i === E.sel;
+      octx.strokeStyle = col; octx.lineWidth = sel ? 4 : 2.5;
+      octx.beginPath(); octx.arc(x, y, (sel ? 18 : 13) + (willClose ? 0 : pulse), 0, 7); octx.stroke();
+      if (!sel && E.res.gaps.length > 30 && E.view.s < E.fitS * 2.2) return;
+      const label = String(i + 1); octx.font = "700 11px -apple-system,system-ui,sans-serif";
+      const tw = octx.measureText(label).width + 8, bx = x + 10, by = y - 22;
+      octx.fillStyle = col; octx.beginPath(); octx.roundRect ? octx.roundRect(bx, by, tw, 15, 7) : octx.rect(bx, by, tw, 15); octx.fill();
+      octx.fillStyle = "#fff"; octx.fillText(label, bx + 4, by + 11.5);
+    });
+  }
+  if (linePrev) {
+    const [a, b] = toScreen(linePrev[0], linePrev[1]), [c, d] = toScreen(linePrev[2], linePrev[3]);
+    octx.strokeStyle = E.pen === "eraser" ? gray : "#000"; octx.lineCap = "round"; octx.lineWidth = Math.max(1, E.size * E.view.s);
+    octx.globalAlpha = .6; octx.beginPath(); octx.moveTo(a, b); octx.lineTo(c, d); octx.stroke(); octx.globalAlpha = 1;
+  }
+}
+function startAnim() {
+  if (animOn) return; animOn = true;
+  const loop = t => { if (!animOn) return; if (E.res && E.res.gaps.length && !E.before && E.tool !== "lines" && E.tool !== "clean") renderOverlay(t); requestAnimationFrame(loop); };
+  requestAnimationFrame(loop);
+}
+function stopAnim() { animOn = false; }
+new ResizeObserver(() => { if (!E.p) return; const c = toImage(E.cw / 2, E.ch / 2), was = E.view.s / E.fitS; resize(); const s = E.fitS * was; E.view = { s, ox: E.cw / 2 - c[0] * s, oy: E.ch / 2 - c[1] * s }; render(); }).observe(stage);
+function zoomAt(f, sx, sy) {
+  const s = Math.min(16, Math.max(E.fitS * 0.5, E.view.s * f)), [ix, iy] = toImage(sx, sy);
+  E.view = { s, ox: sx - ix * s, oy: sy - iy * s }; render();
+}
+$("zIn").addEventListener("click", () => zoomAt(1.5, E.cw / 2, E.ch / 2));
+$("zOut").addEventListener("click", () => zoomAt(1 / 1.5, E.cw / 2, E.ch / 2));
+$("zFit").addEventListener("click", fit);
+function zoomTo(ix, iy, s) { s = Math.min(16, Math.max(E.view.s, s)); E.view = { s, ox: E.cw / 2 - ix * s, oy: E.ch / 2 - iy * s }; render(); }
+
+// ---------- undo / edits ----------
+// undo keeps only the changed area of each step, within a memory budget
+function makePatch(rect, srcB, srcE) {
+  srcB = srcB || E.base; srcE = srcE || E.edit;
+  const [x0, y0, x1, y1] = rect || [0, 0, E.w - 1, E.h - 1], rw = x1 - x0 + 1, rh = y1 - y0 + 1, w = E.w;
+  const b = new Uint8Array(rw * rh), e = new Uint8Array(rw * rh);
+  for (let y = 0; y < rh; y++) { const o = (y0 + y) * w + x0; b.set(srcB.subarray(o, o + rw), y * rw); e.set(srcE.subarray(o, o + rw), y * rw); }
+  return { rect: [x0, y0, x1, y1], b, e, bytes: 2 * rw * rh };
+}
+function writePatch(pt) {
+  const [x0, y0, x1, y1] = pt.rect, rw = x1 - x0 + 1, rh = y1 - y0 + 1, w = E.w;
+  for (let y = 0; y < rh; y++) { const o = (y0 + y) * w + x0; E.base.set(pt.b.subarray(y * rw, (y + 1) * rw), o); E.edit.set(pt.e.subarray(y * rw, (y + 1) * rw), o); }
+  compose(E.base, E.edit, E.gray, pt.rect, w);
+}
+function snap() { return makePatch(null); }
+function restore(pt) { writePatch(pt); }
+const UNDO_BUDGET = 260e6;
+function pushUndo(pt) {
+  E.undo.push(pt); E.redo = [];
+  let bytes = 0; for (const u of E.undo) bytes += u.bytes;
+  while (E.undo.length > 1 && (bytes > UNDO_BUDGET || E.undo.length > 60)) bytes -= E.undo.shift().bytes;
+  updateUndo();
+}
+function updateUndo() { $("undoBtn").disabled = !E.undo.length; $("redoBtn").disabled = !E.redo.length; }
+let recheckT = null;
+function afterEdit(opts = {}) {
+  const p = E.p; E.thumbStale = true; markPx(); updateUndo();
+  if (!opts.noPaint) paintLayer();
+  if (E.res || opts.recheck) {
+    clearTimeout(recheckT);
+    if (opts.now) runCheck(true, opts.keepSel); else recheckT = setTimeout(() => runCheck(true), 700);
+  } else { p.status = "unchecked"; }
+}
+$("undoBtn").addEventListener("click", () => { if (!E.undo.length) return; discardPreview(); const pt = E.undo.pop(); E.redo.push(makePatch(pt.rect)); writePatch(pt); afterEdit({ now: true }); toast("Undone"); });
+$("redoBtn").addEventListener("click", () => { if (!E.redo.length) return; discardPreview(); const pt = E.redo.pop(); E.undo.push(makePatch(pt.rect)); writePatch(pt); afterEdit({ now: true }); toast("Redone"); });
+$("baBtn").addEventListener("click", () => {
+  E.before = !E.before; $("baBtn").setAttribute("aria-pressed", E.before);
+  $("flag").textContent = E.before ? (E.preview ? "Before this change" : "Before (when you opened it)") : ""; $("flag").classList.toggle("on", E.before);
+  paintLayer();
+});
+function setBefore(v) { if (E.before !== v) $("baBtn").click(); }
+function discardPreview() { E.pend = null; if (E.preview) { E.preview = null; paintLayer(); } }
+
+// ---------- check ----------
+function runCheck(silent, keepSel) {
+  const p = E.p, prevSel = E.sel;
+  const r = LS.check(E.gray, E.w, E.h, checkOpts(p));
+  const iL = new Set(p.ignoredLoose || []), iT = new Set(p.ignoredTiny || []);
+  r.loose = r.loose.filter(l => !iL.has(itemKey(l))); r.tiny = r.tiny.filter(q => !iT.has(itemKey(q)));
+  const prevKind = E.selKind, listOf = (res, k) => k === "loose" ? res.loose : k === "tiny" ? res.tiny : res.gaps;
+  const pos = q => q.x1 !== undefined ? [(q.x1 + q.x2) / 2, (q.y1 + q.y2) / 2] : [q.x, q.y];
+  const prevItem = E.res && prevSel >= 0 ? listOf(E.res, prevKind)[prevSel] : null;
+  E.res = r; E.sel = -1; E.connect = null;
+  p.gapCount = r.gaps.length; p.status = r.gaps.length ? "gaps" : "closed"; markDirty(p);
+  if (prevItem) {
+    // stay on the same item after a re-check (or the next one if it was fixed)
+    const list = listOf(r, prevKind), [px0, py0] = pos(prevItem);
+    let best = -1, bd = 5; list.forEach((q, i) => { const [x, y] = pos(q), d = Math.hypot(x - px0, y - py0); if (d < bd) { bd = d; best = i; } });
+    if (best < 0 && list.length) best = Math.min(prevSel, list.length - 1);
+    if (best >= 0) { if (keepSel) selectItem(prevKind, best); else { E.selKind = prevKind; E.sel = best; if (prevKind === "loose") E.connect = LS.findConnect(E.gray, E.w, E.h, list[best], THR, r.stroke, Math.round(30 * E.f)); } }
+  }
+  if (E.tool === "close") buildClosePreview();
+  renderPanel(); render(); startAnim();
+  if (!silent) toast(r.gaps.length ? `${r.gaps.length} ${r.gaps.length === 1 ? "gap" : "gaps"} found` : "No gaps. This page is closed.");
+}
+const itemKey = q => Math.round(q.x / 3) + ":" + Math.round(q.y / 3);
+function selectItem(kind, i) {
+  if (kind === "gap") return selectGap(i);
+  E.selKind = kind; E.sel = i; E.connect = null;
+  const q = (kind === "loose" ? E.res.loose : E.res.tiny)[i]; if (!q) return;
+  if (kind === "loose") E.connect = LS.findConnect(E.gray, E.w, E.h, q, THR, E.res.stroke, Math.round(30 * E.f));
+  zoomTo(q.x + .5, q.y + .5, Math.min(6, Math.max(E.fitS * 5, 1.6))); renderPanel(); renderOverlay();
+}
+function fillTiny(list) {
+  const labels = new Set(list.map(q => q.label)), L = E.res.tinyLabels, ed = E.edit;
+  for (let i = 0; i < L.length; i++) if (L[i] && labels.has(L[i])) ed[i] = 0;
+  compose(E.base, E.edit, E.gray);
+}
+function nearestGap(pt) {
+  let best = 0, bd = 1e9;
+  E.res.gaps.forEach((g, i) => { const d = Math.hypot((g.x1 + g.x2) / 2 - pt[0], (g.y1 + g.y2) / 2 - pt[1]); if (d < bd) { bd = d; best = i; } });
+  return best;
+}
+function selectGap(i) {
+  E.selKind = "gap"; E.connect = null; E.justClosed = null;
+  E.sel = i; const g = E.res.gaps[i];
+  if (g) zoomTo((g.x1 + g.x2) / 2 + .5, (g.y1 + g.y2) / 2 + .5, Math.min(6, Math.max(E.fitS * 5, 1.6)));
+  renderPanel(); renderOverlay();
+}
+
+// ---------- tools & panels ----------
+document.querySelectorAll(".tool").forEach(b => b.addEventListener("click", () => setTool(b.dataset.tool)));
+function setTool(t, force) {
+  if (E.tool === t && !force) return;
+  E.tool = t; E.preview = null; E.pend = null; linePrev = null; setBefore(false); E.justClosed = null;
+  if (t !== "draw") E.fromGap = null;
+  document.querySelectorAll(".tool").forEach(b => b.setAttribute("aria-pressed", b.dataset.tool === t));
+  if (t === "close") { if (!E.res) runCheck(true); buildClosePreview(); }
+  if (t === "lines") { E.lineVal = 0; }
+  E.pend = null;
+  if (t === "clean") buildCleanPreview();
+  if (t === "close") buildClosePreview();
+  renderPanel(); paintLayer();
+}
+function el(tag, props = {}, ...kids) { const e = document.createElement(tag); for (const k in props) { if (k === "on") for (const ev in props.on) e.addEventListener(ev, props.on[ev]); else if (k in e && k !== "list") e[k] = props[k]; else e.setAttribute(k, props[k]); } for (const c of kids) if (c != null) e.append(c); return e; }
+function chip(color, text, pressed, on) { return el("button", { className: "chip", type: "button", "aria-pressed": String(pressed), on: { click: on } }, el("span", { className: "dot", style: "background:" + color }), text); }
+function renderPanel() {
+  const P = $("panel"); P.innerHTML = "";
+  const add = (...k) => P.append(...k.filter(x => x != null));
+  if (!E.p) return;
+  const t = E.tool;
+  if (t === "check") {
+    if (!E.res) {
+      add(el("h3", { textContent: "Find gaps" }), el("p", { textContent: "Finds places where color would leak out of a shape." }),
+        el("button", { className: "btn primary big", textContent: "Check", on: { click: () => { toast("Checking…", 900); setTimeout(() => runCheck(false), 30); } } }));
+      return;
+    }
+    const gaps = E.res.gaps;
+    if (E.justClosed) {
+      add(el("h3", { textContent: "Gap closed ✓" }),
+        el("p", { textContent: gaps.length ? `${gaps.length} ${gaps.length === 1 ? "gap" : "gaps"} left. Undo (top) if you don’t like it.` : "No gaps left. This page is closed." }),
+        el("div", { className: "prow" },
+          gaps.length ? el("button", { className: "btn primary", textContent: "Go to next gap", on: { click: () => selectGap(nearestGap(E.justClosed)) } }) : null,
+          el("button", { className: "btn", textContent: "Done", on: { click: () => { E.justClosed = null; E.sel = -1; fit(); renderPanel(); } } })));
+      return;
+    }
+    if (E.selKind === "gap" && E.sel >= 0 && gaps[E.sel]) {
+      const g = gaps[E.sel];
+      add(el("h3", { textContent: `Gap ${E.sel + 1} of ${gaps.length}` }),
+        el("p", { textContent: `${g.size} px wide. The green dashes show the line the app would add. Close it with that line, or draw your own fix.` }),
+        el("div", { className: "prow" },
+          el("button", { className: "btn primary", textContent: "Close this gap", on: { click: () => {
+            pushUndo(snap()); LS.drawGaps(E.edit, E.w, E.h, [g], E.res.stroke); compose(E.base, E.edit, E.gray);
+            gaps.splice(E.sel, 1); E.p.gapCount = gaps.length; E.p.status = gaps.length ? "gaps" : "closed";
+            E.justClosed = [(g.x1 + g.x2) / 2, (g.y1 + g.y2) / 2]; E.sel = -1;
+            afterEdit({}); renderPanel(); renderOverlay(); toast("Closed");
+          } } }),
+          el("button", { className: "btn", textContent: "Draw my own", on: { click: () => {
+            E.fromGap = [(g.x1 + g.x2) / 2, (g.y1 + g.y2) / 2]; E.pen = "pen";
+            E.size = Math.max(1, Math.round(E.res.stroke)); setTool("draw");
+          } } }),
+          el("button", { className: "btn", textContent: "Ignore", on: { click: () => { E.p.ignored.push(g.key); gaps.splice(E.sel, 1); E.p.gapCount = gaps.length; E.p.status = gaps.length ? "gaps" : "closed"; markDirty(E.p); if (gaps.length) selectGap(Math.min(E.sel, gaps.length - 1)); else { E.sel = -1; renderPanel(); render(); toast("No gaps left."); } } } })),
+        el("div", { className: "prow" },
+          el("button", { className: "btn", textContent: "Next gap", disabled: gaps.length < 2, on: { click: () => selectGap((E.sel + 1) % gaps.length) } }),
+          el("button", { className: "btn", textContent: "Done", on: { click: () => { E.sel = -1; fit(); renderPanel(); } } })));
+      return;
+    }
+    if (E.selKind === "loose" && E.sel >= 0 && E.res.loose[E.sel]) {
+      const L = E.res.loose, l = L[E.sel];
+      add(el("h3", { textContent: `Loose end ${E.sel + 1} of ${L.length}` }),
+        el("p", { textContent: E.connect ? "A line end that doesn’t let color leak. Usually fine (hair, decoration). Connect it if it should touch the nearby line (green dashes)." : "A line end that doesn’t let color leak. Usually fine. No line is close enough to connect to; use Draw if you need one." }),
+        el("div", { className: "prow" },
+          el("button", { className: "btn primary", textContent: "Connect", disabled: !E.connect, on: { click: () => { const t = E.connect; pushUndo(snap()); LS.capsule(E.edit, E.w, E.h, l.x + .5, l.y + .5, t.x + .5, t.y + .5, Math.max(0.9, E.res.stroke / 2), "ink"); compose(E.base, E.edit, E.gray);
+            const at = E.sel; L.splice(at, 1); afterEdit({});
+            if (L.length) selectItem("loose", Math.min(at, L.length - 1)); else { E.sel = -1; renderPanel(); renderOverlay(); }
+            toast("Connected"); } } }),
+          el("button", { className: "btn", textContent: "Ignore", on: { click: () => { E.p.ignoredLoose = E.p.ignoredLoose || []; E.p.ignoredLoose.push(itemKey(l)); L.splice(E.sel, 1); markDirty(E.p); if (L.length) selectItem("loose", Math.min(E.sel, L.length - 1)); else { E.sel = -1; renderPanel(); renderOverlay(); } } } }),
+          el("button", { className: "btn", textContent: "Next", disabled: L.length < 2, on: { click: () => selectItem("loose", (E.sel + 1) % L.length) } }),
+          el("button", { className: "btn", textContent: "Done", on: { click: () => { E.sel = -1; E.selKind = "gap"; E.connect = null; fit(); renderPanel(); } } })));
+      return;
+    }
+    if (E.selKind === "tiny" && E.sel >= 0 && E.res.tiny[E.sel]) {
+      const T = E.res.tiny, q = T[E.sel];
+      add(el("h3", { textContent: `Tiny shape ${E.sel + 1} of ${T.length}` }),
+        el("p", { textContent: `${q.area} px. Too small to tap in a coloring app. Fill it black, or leave it.` }),
+        el("div", { className: "prow" },
+          el("button", { className: "btn primary", textContent: "Fill black", on: { click: () => {
+            pushUndo(snap()); fillTiny([q]);
+            const at = E.sel; T.splice(at, 1); afterEdit({});
+            if (T.length) selectItem("tiny", Math.min(at, T.length - 1)); else { E.sel = -1; renderPanel(); renderOverlay(); }
+            toast("Filled"); } } }),
+          el("button", { className: "btn", textContent: "Ignore", on: { click: () => { E.p.ignoredTiny = E.p.ignoredTiny || []; E.p.ignoredTiny.push(itemKey(q)); T.splice(E.sel, 1); markDirty(E.p); if (T.length) selectItem("tiny", Math.min(E.sel, T.length - 1)); else { E.sel = -1; renderPanel(); renderOverlay(); } } } }),
+          el("button", { className: "btn", textContent: "Next", disabled: T.length < 2, on: { click: () => selectItem("tiny", (E.sel + 1) % T.length) } }),
+          el("button", { className: "btn", textContent: "Done", on: { click: () => { E.sel = -1; E.selKind = "gap"; fit(); renderPanel(); } } })));
+      return;
+    }
+    const red = getComputedStyle(document.documentElement).getPropertyValue("--red"), yel = getComputedStyle(document.documentElement).getPropertyValue("--yellow"), gr = getComputedStyle(document.documentElement).getPropertyValue("--gray");
+    add(el("h3", { textContent: gaps.length ? `${gaps.length} ${gaps.length === 1 ? "gap" : "gaps"} found` : "No gaps. This page is closed ✓" }),
+      el("p", { textContent: gaps.length ? "Tap a red circle to zoom in and fix it." : "Color can’t leak out of any shape." }),
+      el("div", { className: "prow" },
+        gaps.length ? chip(red, `${gaps.length} gaps`, true, () => selectGap(0)) : null,
+        chip(gr, `Loose ends ${E.res.loose.length}`, E.showLoose, () => { E.showLoose = !E.showLoose; renderPanel(); renderOverlay(); }),
+        chip(yel, `Tiny shapes ${E.res.tiny.length}`, E.showTiny, () => { E.showTiny = !E.showTiny; renderPanel(); renderOverlay(); })),
+      E.showLoose ? el("div", {}, el("p", { textContent: "Loose ends are line ends that don’t let color leak (hair, decoration). They are not errors. Tap a gray dot to connect or ignore it." }),
+        E.res.loose.length ? el("button", { className: "btn", textContent: "Review loose ends", on: { click: () => selectItem("loose", 0) } }) : null) : null,
+      E.showTiny ? el("div", {}, el("p", { textContent: "Tiny shapes (under 40 px) are hard to tap in a coloring app. Tap a yellow ring to fill it black or ignore it." }),
+        E.res.tiny.length ? el("div", { className: "prow" },
+          el("button", { className: "btn", textContent: "Review tiny shapes", on: { click: () => selectItem("tiny", 0) } }),
+          el("button", { className: "btn", textContent: `Fill all ${E.res.tiny.length} black`, on: { click: ev => {
+            const b = ev.currentTarget;
+            if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Tap again to fill all"; setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = `Fill all ${E.res.tiny.length} black`; } }, 3000); return; }
+            const n = E.res.tiny.length; pushUndo(snap()); fillTiny(E.res.tiny); afterEdit({ now: true }); toast(`Filled ${n} tiny shapes. Undo if you don’t like it.`);
+          } } })) : null) : null,
+      el("div", { className: "prow" }, el("button", { className: "btn", textContent: "Check again", on: { click: () => runCheck(false) } })));
+    return;
+  }
+  if (t === "close") {
+    const gaps = E.res ? E.res.gaps : [], n = gaps.filter(g => g.size <= E.closeN).length, big = gaps.length - n;
+    const val = el("span", { className: "v", textContent: E.closeN + " px" });
+    add(el("h3", { textContent: "Close gaps automatically" }),
+      el("div", { className: "slider" }, el("small", { textContent: "1" }),
+        el("input", { type: "range", min: 1, max: E.closeMax, step: 1, value: E.closeN, "aria-label": "Close gaps up to", on: { input: e => { E.closeN = +e.target.value; buildClosePreview(); paintLayer(); renderPanel(); } } }),
+        el("small", { textContent: String(E.closeMax) }), val),
+      el("p", { textContent: gaps.length ? `Closes ${n} of ${gaps.length} gaps (green). Use Before/After to compare.` : "No gaps to close." }),
+      big ? el("p", { className: "note", textContent: `Big gaps need a hand-drawn fix: ${big} left (red). Use Draw.` }) : null,
+      el("button", { className: "btn primary big", textContent: n ? `Apply: close ${n}` : "Nothing to close", disabled: !n, on: { click: applyClose } }));
+    return;
+  }
+  if (t === "lines") {
+    const seg = el("div", { className: "seg", role: "group", "aria-label": "Line weight" });
+    for (const [k, txt] of [[-2, "Much thinner"], [-1, "Thinner"], [0, "As drawn"], [1, "Thicker"]])
+      seg.append(el("button", { type: "button", textContent: txt, "aria-pressed": String(E.lineVal === k), on: { click: () => { E.lineVal = k; renderPanel(); scheduleLines(); } } }));
+    add(el("h3", { textContent: "Line weight" }), el("div", { className: "prow" }, seg),
+      el("p", { textContent: "Gently lightens or darkens the edges of your lines. The soft edges of the original stay. Use Before/After to compare." }),
+      el("p", { className: "note", textContent: "Thicker works best on simple pages; on busy pages it can fill in small details. Thinner never breaks a line." }),
+      el("button", { className: "btn primary big", id: "linesApply", textContent: "Apply", disabled: E.lineVal === 0, on: { click: () => applyPreview("Line weight changed") } }));
+    return;
+  }
+  if (t === "draw") {
+    if (E.fromGap) add(el("div", { className: "fixbar" },
+      el("span", { textContent: "Fixing a gap by hand. Draw your line, then go back." }),
+      el("button", { className: "btn primary", textContent: "Back to gaps", on: { click: () => {
+        const pt = E.fromGap; E.fromGap = null; setTool("check"); runCheck(true);
+        if (E.res.gaps.length) { const i = nearestGap(pt), g = E.res.gaps[i]; const d = Math.hypot((g.x1 + g.x2) / 2 - pt[0], (g.y1 + g.y2) / 2 - pt[1]);
+          if (d < 6) { selectGap(i); toast("This gap is still open"); } else { E.justClosed = pt; renderPanel(); toast("Gap fixed ✓"); } }
+        else toast("No gaps left ✓");
+      } } })));
+    const seg = el("div", { className: "seg", role: "group", "aria-label": "Drawing tool" });
+    for (const [k, txt] of [["pen", "Pen"], ["eraser", "Eraser"], ["line", "Straight line"]])
+      seg.append(el("button", { type: "button", textContent: txt, "aria-pressed": String(E.pen === k), on: { click: () => { E.pen = k; renderPanel(); } } }));
+    const eseg = el("div", { className: "seg", role: "group", "aria-label": "What to erase" });
+    for (const [k, txt] of [["orig", "Original"], ["new", "New lines"], ["both", "Both"]])
+      eseg.append(el("button", { type: "button", textContent: txt, "aria-pressed": String(E.erase === k), on: { click: () => { E.erase = k; renderPanel(); } } }));
+    add(el("div", { className: "prow" }, seg),
+      E.pen === "eraser" ? el("div", { className: "prow" }, el("span", { className: "slider", textContent: "Erase:" }), eseg) : null,
+      el("div", { className: "prow" }, chip("#1E73EB", "Show new lines in blue", E.colorNew, () => { E.colorNew = !E.colorNew; renderPanel(); paintLayer(); })),
+      el("div", { className: "slider" }, el("small", { textContent: "Size" }),
+        el("input", { type: "range", min: 1, max: E.sizeMax, step: 1, value: E.size, "aria-label": "Size", on: { input: e => { E.size = +e.target.value; e.target.parentNode.querySelector(".v").textContent = E.size + " px"; } } }),
+        el("span", { className: "v", textContent: E.size + " px" })),
+      el("p", { textContent: "New lines and closed gaps go on their own layer, so you can erase them without touching the original drawing. One finger draws. Two fingers move and zoom." }));
+    return;
+  }
+  if (t === "clean") {
+    add(el("h3", { textContent: "Make pure black and white" }),
+      el("p", { textContent: "Removes gray noise and soft edges, so every pixel is pure black or pure white." }),
+      el("p", { className: "note", textContent: "This makes edges jagged at 900 px. Only use it if your coloring app needs pure black and white." }),
+      el("button", { className: "btn primary big", textContent: "Make pure black and white", on: { click: () => applyPreview("Page is now pure black and white") } }));
+    const xs = el("div", { className: "seg", role: "group", "aria-label": "Export style" });
+    for (const [k, txt] of [["smooth", "Smooth edges"], ["bw", "Pure black & white"]])
+      xs.append(el("button", { type: "button", textContent: txt, "aria-pressed": String(exportMode === k), on: { click: () => { setExportMode(k); renderPanel(); } } }));
+    add(el("h3", { textContent: "Export style", style: "margin-top:14px" }), el("div", { className: "prow" }, xs),
+      el("p", { textContent: exportMode === "smooth" ? "Smooth edges look best (no jagged pixels). Closed gaps stay closed." : "Pure black & white has no gray at all, but edges look jagged on small pages." }));
+  }
+}
+function setPend(b, e) {
+  E.pend = { b, e };
+  E.preview = new Uint8Array(E.gray.length); compose(b || E.base, e || E.edit, E.preview);
+}
+function buildClosePreview() {
+  E.pend = null; E.preview = null;
+  if (!E.res) return;
+  const list = E.res.gaps.filter(g => g.size <= E.closeN);
+  if (!list.length) return;
+  const pe = E.edit.slice(); LS.drawGaps(pe, E.w, E.h, list, E.res.stroke); setPend(null, pe);
+}
+function buildCleanPreview() { setPend(LS.pureBW(E.base, THR), hasInk(E.edit) ? LS.pureBW(E.edit, THR) : null); }
+function commitPend() {
+  pushUndo(snap());
+  if (E.pend.b) E.base.set(E.pend.b); if (E.pend.e) E.edit.set(E.pend.e);
+  compose(E.base, E.edit, E.gray); E.pend = null; E.preview = null;
+}
+function applyClose() {
+  if (!E.pend) return;
+  commitPend();
+  const n = E.res.gaps.filter(g => g.size <= E.closeN).length;
+  afterEdit({ now: true }); toast(`Closed ${n} ${n === 1 ? "gap" : "gaps"}`);
+}
+function applyPreview(msg) {
+  if (!E.pend) return;
+  setBefore(false);
+  commitPend();
+  if (E.tool === "lines") { E.lineVal = 0; }
+  if (E.tool === "clean") buildCleanPreview();
+  afterEdit({}); renderPanel(); toast(msg);
+}
+let linesT = null;
+function scheduleLines() {
+  clearTimeout(linesT);
+  if (E.lineVal !== 0 && E.w * E.h > 2e6) busy(true, "Updating preview…");
+  linesT = setTimeout(() => {
+    if (E.lineVal === 0) { E.pend = null; E.preview = null; }
+    else {
+      if (!E.stroke) E.stroke = LS.strokeWidth(E.gray, E.w, E.h, THR);
+      // small pages: the gentle method from the first tool; big (print) pages with thick lines: smooth distance method
+      const big = E.stroke >= 4, fn = big ? LS.lineWeightSDF : LS.lineWeight;
+      const px = 2 * E.lineVal * Math.max(0.35, E.stroke * (big ? 0.15 : 0.22));
+      setPend(fn(E.base, E.w, E.h, px, THR), hasInk(E.edit) ? fn(E.edit, E.w, E.h, px, THR) : null);
+    }
+    const b = $("linesApply"); if (b) b.disabled = E.lineVal === 0;
+    busy(false); paintLayer();
+  }, 60);
+}
+
+// ---------- gestures: one finger draws (or taps), two fingers move & zoom ----------
+const ptrs = new Map(); let gesture = null, stroke = null, tapStart = null, locked = false;
+function local(e) { const r = stage.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+function cancelStroke() { if (stroke) { if (stroke.rect) writePatch(makePatch(stroke.rect, E.tmpB, E.tmpE)); stroke = null; linePrev = null; paintLayer(); } }
+function strokeBegin() {
+  if (!E.tmpB) { E.tmpB = new Uint8Array(E.base.length); E.tmpE = new Uint8Array(E.edit.length); }
+  E.tmpB.set(E.base); E.tmpE.set(E.edit);
+}
+stage.addEventListener("pointerdown", e => {
+  if (e.target.closest(".zoombox")) return;
+  e.preventDefault();
+  try { stage.setPointerCapture(e.pointerId); } catch (_) {}
+  ptrs.set(e.pointerId, local(e));
+  if (ptrs.size === 2) {
+    cancelStroke(); tapStart = null;
+    const [a, b] = [...ptrs.values()];
+    gesture = { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], v: { ...E.view } };
+    return;
+  }
+  if (ptrs.size > 2 || locked) return;
+  const [sx, sy] = ptrs.get(e.pointerId);
+  if (E.tool === "draw") {
+    setBefore(false);
+    const [x, y] = toImage(sx, sy);
+    strokeBegin();
+    stroke = { id: e.pointerId, rect: null, last: [x, y], start: [x, y], moved: false };
+    if (E.pen !== "line") drawSeg(x, y, x, y);
+  } else tapStart = { id: e.pointerId, x: sx, y: sy, v: { ...E.view }, moved: false };
+});
+stage.addEventListener("pointermove", e => {
+  if (!ptrs.has(e.pointerId)) return;
+  e.preventDefault();
+  ptrs.set(e.pointerId, local(e));
+  if (gesture && ptrs.size >= 2) {
+    const [a, b] = [...ptrs.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const s = Math.min(16, Math.max(E.fitS * 0.5, gesture.v.s * d / gesture.d));
+    const ix = (gesture.m[0] - gesture.v.ox) / gesture.v.s, iy = (gesture.m[1] - gesture.v.oy) / gesture.v.s;
+    E.view = { s, ox: m[0] - ix * s, oy: m[1] - iy * s }; render(); return;
+  }
+  const [sx, sy] = ptrs.get(e.pointerId);
+  if (stroke && stroke.id === e.pointerId) {
+    const [x, y] = toImage(sx, sy);
+    if (E.pen === "line") { linePrev = [stroke.start[0], stroke.start[1], x, y]; renderOverlay(); }
+    else { drawSeg(stroke.last[0], stroke.last[1], x, y); stroke.last = [x, y]; }
+    stroke.moved = true; return;
+  }
+  if (tapStart && tapStart.id === e.pointerId) {
+    const dx = sx - tapStart.x, dy = sy - tapStart.y;
+    if (!tapStart.moved && Math.hypot(dx, dy) > 8) tapStart.moved = true;
+    if (tapStart.moved) { E.view = { s: tapStart.v.s, ox: tapStart.v.ox + dx, oy: tapStart.v.oy + dy }; render(); }
+  }
+});
+function endPtr(e, cancelled) {
+  if (!ptrs.has(e.pointerId)) return;
+  const pos = ptrs.get(e.pointerId); ptrs.delete(e.pointerId);
+  if (gesture) { if (ptrs.size < 2) { gesture = null; locked = ptrs.size > 0; } return; }
+  if (!ptrs.size) locked = false;
+  if (stroke && stroke.id === e.pointerId) {
+    if (cancelled) { cancelStroke(); return; }
+    if (E.pen === "line") {
+      const [x, y] = toImage(pos[0], pos[1]); linePrev = null;
+      if (Math.hypot(x - stroke.start[0], y - stroke.start[1]) > 0.5) drawSeg(stroke.start[0], stroke.start[1], x, y); else { stroke = null; renderOverlay(); return; }
+    }
+    if (stroke.rect) pushUndo(makePatch(stroke.rect, E.tmpB, E.tmpE));
+    stroke = null; afterEdit({ noPaint: true }); renderOverlay(); return;
+  }
+  if (tapStart && tapStart.id === e.pointerId) { const t = tapStart; tapStart = null; if (!t.moved && !cancelled) handleTap(pos[0], pos[1]); }
+}
+stage.addEventListener("pointerup", e => endPtr(e, false));
+stage.addEventListener("pointercancel", e => endPtr(e, true));
+stage.addEventListener("wheel", e => { e.preventDefault(); const [sx, sy] = local(e); zoomAt(Math.exp(-e.deltaY * 0.0015), sx, sy); }, { passive: false });
+["gesturestart", "gesturechange", "touchmove"].forEach(t => stage.addEventListener(t, e => e.preventDefault(), { passive: false }));
+function drawSeg(x1, y1, x2, y2) {
+  const r = Math.max(0.5, E.size / 2);
+  let rect;
+  if (E.pen === "eraser") {
+    if (E.erase !== "new") rect = LS.capsule(E.base, E.w, E.h, x1, y1, x2, y2, r, "erase");
+    if (E.erase !== "orig") rect = LS.capsule(E.edit, E.w, E.h, x1, y1, x2, y2, r, "erase");
+  } else rect = LS.capsule(E.edit, E.w, E.h, x1, y1, x2, y2, r, "ink");
+  rect = [Math.max(0, rect[0]), Math.max(0, rect[1]), Math.min(E.w - 1, rect[2]), Math.min(E.h - 1, rect[3])];
+  if (rect[0] <= rect[2] && rect[1] <= rect[3]) {
+    compose(E.base, E.edit, E.gray, rect, E.w); paintLayer(rect);
+    if (stroke) stroke.rect = stroke.rect ? [Math.min(stroke.rect[0], rect[0]), Math.min(stroke.rect[1], rect[1]), Math.max(stroke.rect[2], rect[2]), Math.max(stroke.rect[3], rect[3])] : rect;
+  }
+}
+function handleTap(sx, sy) {
+  if (!E.res || E.before) return;
+  let best = -1, bd = 24;
+  E.res.gaps.forEach((g, i) => { const [x, y] = toScreen((g.x1 + g.x2) / 2 + .5, (g.y1 + g.y2) / 2 + .5); const d = Math.hypot(x - sx, y - sy); if (d < bd) { bd = d; best = i; } });
+  if (best >= 0) { if (E.tool !== "check") setTool("check"); selectGap(best); return; }
+  const near = (list, r) => { let b = -1, d0 = r; list.forEach((q, i) => { const [x, y] = toScreen(q.x + .5, q.y + .5), d = Math.hypot(x - sx, y - sy); if (d < d0) { d0 = d; b = i; } }); return b; };
+  if (E.showTiny) { const i = near(E.res.tiny, 18); if (i >= 0) { if (E.tool !== "check") setTool("check"); selectItem("tiny", i); return; } }
+  if (E.showLoose) { const i = near(E.res.loose, 18); if (i >= 0) { if (E.tool !== "check") setTool("check"); selectItem("loose", i); return; } }
+}
+document.addEventListener("keydown", e => {
+  if (!E.p) return;
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") { e.preventDefault(); (e.shiftKey ? $("redoBtn") : $("undoBtn")).click(); }
+});
+$("exportBtn").addEventListener("click", async () => {
+  const p = E.p; busy(true, "Preparing…"); await tick();
+  const out = await pngBytes(p, E.gray); busy(false);
+  toast(`${SIZES[exportSize][0]}: ${out.w}×${out.h}`, 2500);
+  await deliver(pad(E.idx + 1) + (exportSize === "orig" ? "" : "-" + exportSize) + ".png", new Blob([out.bytes], { type: "image/png" }));
+});
+window.addEventListener("pagehide", flushSave);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushSave(); });
+loadAll();
+
+// ---------- installable app (GitHub Pages): offline support + "Add to Home Screen" tip ----------
+const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol) && !window.claude) {
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+}
+(function installTip() {
+  if (standalone || window.claude || !/^https?:$/.test(location.protocol) || lsGet("ls-tip-done")) return;
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const box = document.createElement("div"); box.className = "backup"; box.id = "installTip";
+  const t = document.createElement("div"); t.className = "backuptext";
+  t.innerHTML = "<b>Install Line Studio</b><span></span>";
+  t.querySelector("span").textContent = ios ? "Tap the Share button, then “Add to Home Screen”. It opens like an app and works offline." : "Use your browser menu → “Install app” or “Add to Home screen”. It works offline.";
+  const x = document.createElement("button"); x.className = "btn"; x.textContent = "Got it";
+  x.onclick = () => { lsSet("ls-tip-done", "1"); box.remove(); };
+  box.append(t, x);
+  const lib = $("lib"); lib.insertBefore(box, lib.querySelector(".libactions"));
+})();
+
+</script>
+</body>
+</html>
